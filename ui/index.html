@@ -10,20 +10,24 @@
         .container { max-width: 800px; margin: 0 auto; background: var(--card); padding: 2rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
         h1 { margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
         .controls { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-        input[type="text"] { flex-grow: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 1rem; }
+        input[type="text"] { flex-grow: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 1rem; outline: none; }
+        input[type="text"]:focus { border-color: var(--primary); }
         button { padding: 10px 20px; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
         .btn-add { background-color: var(--bg); border: 1px solid var(--border); color: var(--text); }
         .btn-add:hover { background-color: #e5e7eb; }
-        .btn-build { background-color: var(--primary); color: white; }
+        .btn-build { background-color: var(--primary); color: white; width: 100%; margin-top: 1rem; }
         .btn-build:hover { background-color: var(--primary-hover); }
-        .queue-box { border: 1px solid var(--border); border-radius: 6px; min-height: 150px; padding: 1rem; margin-bottom: 1.5rem; background: #fafbfc; }
-        .queue-title { font-weight: 600; margin-bottom: 1rem; color: #57606a; }
+        .queue-box { border: 1px solid var(--border); border-radius: 6px; min-height: 150px; padding: 1rem; background: #fafbfc; }
+        .queue-title { font-weight: 600; margin-bottom: 1rem; color: #57606a; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+        #queue-list { list-style: none; padding: 0; margin: 0; }
+        #queue-list li { padding: 8px; border-bottom: 1px solid var(--border); background: var(--card); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center;}
+        #queue-list li::before { content: '📦'; margin-right: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🗃️ DocCrate Studio</h1>
-        <p>Add GitHub URLs or local folders to your staging queue, then build your offline bundle.</p>
+        <p>Curate your sources to build an offline Master Library.</p>
         
         <div class="controls">
             <input type="text" id="source-input" placeholder="e.g., https://github.com/TangoSplicer/project-aletheia.git">
@@ -33,21 +37,57 @@
         <div class="queue-box">
             <div class="queue-title">Staged Sources</div>
             <ul id="queue-list">
-                <li><em>Your queue is empty.</em></li>
+                <li><em>Loading queue...</em></li>
             </ul>
         </div>
 
-        <button class="btn-build" onclick="buildDocs()">🚀 Build & Pack Library</button>
+        <button class="btn-build" onclick="alert('Build engine wiring coming next!')">🚀 Build & Pack Library</button>
     </div>
 
     <script>
-        // We will connect these to Tauri's Rust API in the next step!
-        function addSource() {
-            alert("This will connect to the Rust add_source() function!");
+        const { invoke } = window.__TAURI__.tauri;
+
+        // Function to refresh the UI list from the Rust backend
+        async function refreshQueue() {
+            try {
+                const sources = await invoke('get_staged_sources');
+                const list = document.getElementById('queue-list');
+                list.innerHTML = ''; // Clear current
+
+                if (sources.length === 0) {
+                    list.innerHTML = '<li><em>Your queue is empty.</em></li>';
+                    return;
+                }
+
+                sources.forEach(src => {
+                    const li = document.createElement('li');
+                    li.textContent = src;
+                    list.appendChild(li);
+                });
+            } catch (e) {
+                console.error("Failed to load queue:", e);
+            }
         }
-        function buildDocs() {
-            alert("This will connect to the Rust build_single_docs() function!");
+
+        // Function to send a new source to the Rust backend
+        async function addSource() {
+            const input = document.getElementById('source-input');
+            const sourceUrl = input.value.trim();
+            
+            if (!sourceUrl) return;
+
+            try {
+                // Call the Rust command
+                await invoke('add_source', { source: sourceUrl });
+                input.value = ''; // Clear input box
+                refreshQueue();   // Update the list
+            } catch (e) {
+                alert("Error adding source: " + e);
+            }
         }
+
+        // Load the queue as soon as the app opens
+        window.addEventListener('DOMContentLoaded', refreshQueue);
     </script>
 </body>
 </html>
