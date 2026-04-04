@@ -1,10 +1,53 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>DocCrate Viewer</title>
-  </head>
-  <body>
-    <h1>DocCrate</h1>
-    <p>Loading offline documentation...</p>
-  </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocCrate Studio</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --primary: #2da44e; --primary-hover: #2c974b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; background-color: var(--bg); color: var(--text); }
+        .container { max-width: 800px; margin: 0 auto; background: var(--card); padding: 2rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+        .controls { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+        input[type="text"] { flex-grow: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 1rem; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-add { background-color: var(--bg); border: 1px solid var(--border); color: var(--text); }
+        .btn-add:hover { background-color: #e5e7eb; }
+        .btn-build { background-color: var(--primary); color: white; }
+        .btn-build:hover { background-color: var(--primary-hover); }
+        .queue-box { border: 1px solid var(--border); border-radius: 6px; min-height: 150px; padding: 1rem; margin-bottom: 1.5rem; background: #fafbfc; }
+        .queue-title { font-weight: 600; margin-bottom: 1rem; color: #57606a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗃️ DocCrate Studio</h1>
+        <p>Add GitHub URLs or local folders to your staging queue, then build your offline bundle.</p>
+        
+        <div class="controls">
+            <input type="text" id="source-input" placeholder="e.g., https://github.com/TangoSplicer/project-aletheia.git">
+            <button class="btn-add" onclick="addSource()">+ Add to Queue</button>
+        </div>
+
+        <div class="queue-box">
+            <div class="queue-title">Staged Sources</div>
+            <ul id="queue-list">
+                <li><em>Your queue is empty.</em></li>
+            </ul>
+        </div>
+
+        <button class="btn-build" onclick="buildDocs()">🚀 Build & Pack Library</button>
+    </div>
+
+    <script>
+        // We will connect these to Tauri's Rust API in the next step!
+        function addSource() {
+            alert("This will connect to the Rust add_source() function!");
+        }
+        function buildDocs() {
+            alert("This will connect to the Rust build_single_docs() function!");
+        }
+    </script>
+</body>
 </html>

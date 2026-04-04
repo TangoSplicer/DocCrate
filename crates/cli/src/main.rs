@@ -4,6 +4,8 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
+const STAGE_FILE: &str = "doccrate.json";
+
 #[derive(Parser)]
 #[command(name = "doccrate", about = "Offline Documentation Builder CLI")]
 struct Cli {
@@ -13,10 +15,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Build documentation from a source repository or folder
+    /// Add a source (URL or folder) to the staging area
+    Add { source: String },
+    /// Show currently staged sources
+    Status,
+    /// Build documentation from staged sources (or a specific source)
     Build {
         #[arg(short, long)]
-        source: String,
+        source: Option<String>,
         #[arg(short, long, default_value = "./dist")]
         out: String,
     },
@@ -24,7 +30,7 @@ enum Commands {
     Pack {
         #[arg(short, long, default_value = "./dist")]
         source: String,
-        #[arg(short, long, default_value = "library.docpack")]
+        #[arg(short, long, default_value = "Library.docpack")]
         out: String,
     },
 }
@@ -33,41 +39,115 @@ fn main() {
     let cli = Cli::parse();
     
     match &cli.command {
-        Commands::Build { source, out } => build_docs(source, out),
+        Commands::Add { source } => add_source(source),
+        Commands::Status => show_status(),
+        Commands::Build { source, out } => {
+            let out_path = Path::new(out);
+            let _ = fs::create_dir_all(out_path);
+
+            if let Some(s) = source {
+                // Build just one source
+                build_single_docs(s, out_path);
+            } else {
+                // Build everything in the staging file
+                let sources = get_staged_sources();
+                if sources.is_empty() {
+                    println!("⚠️ No sources staged. Use 'doccrate add <source>' first.");
+                    return;
+                }
+                println!("🚀 Building {} staged sources...", sources.len());
+                for s in &sources {
+                    build_single_docs(s, out_path);
+                }
+                generate_master_index(out_path);
+                println!("🎉 Master Library build complete!");
+            }
+        },
         Commands::Pack { source, out } => pack_docs(source, out),
     }
 }
 
-// --- PACK LOGIC ---
-fn pack_docs(source: &str, out: &str) {
-    println!("📦 Packaging documentation bundle...");
-    
-    let source_path = Path::new(source);
-    if !source_path.exists() || !source_path.is_dir() {
-        eprintln!("Error: Source directory '{}' does not exist.", source);
-        return;
+// --- STAGING LOGIC ---
+fn get_staged_sources() -> Vec<String> {
+    if let Ok(content) = fs::read_to_string(STAGE_FILE) {
+        if let Ok(sources) = serde_json::from_str::<Vec<String>>(&content) {
+            return sources;
+        }
     }
+    Vec::new()
+}
 
-    // Use native zip command to recursively compress the directory
-    // -r: recursive, -q: quiet
-    let status = Command::new("zip")
-        .current_dir(source) // Run the zip command from INSIDE the dist folder
-        .args(["-r", "-q", &format!("../{}", out), "."])
-        .status()
-        .expect("Failed to execute zip command. Is it installed?");
-
-    if status.success() {
-        println!("✅ Successfully created portable bundle: {}", out);
+fn add_source(source: &str) {
+    let mut sources = get_staged_sources();
+    if !sources.contains(&source.to_string()) {
+        sources.push(source.to_string());
+        let json = serde_json::to_string_pretty(&sources).unwrap();
+        fs::write(STAGE_FILE, json).unwrap();
+        println!("✅ Added to staging: {}", source);
     } else {
-        eprintln!("❌ Failed to package the bundle.");
+        println!("ℹ️ Source is already staged.");
     }
 }
 
-// --- BUILD LOGIC (Unchanged) ---
-fn build_docs(source: &str, out: &str) {
+fn show_status() {
+    let sources = get_staged_sources();
+    println!("🗂️  Currently Staged Sources:");
+    if sources.is_empty() {
+        println!("   (None)");
+    } else {
+        for (i, s) in sources.iter().enumerate() {
+            println!("   {}. {}", i + 1, s);
+        }
+    }
+}
+
+// --- MASTER INDEX LOGIC ---
+fn generate_master_index(out_dir: &Path) {
+    println!("🎨 Generating Master Library Index...");
+    let mut html = String::from(r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocCrate Library</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1 { border-bottom: 2px solid var(--border); padding-bottom: 0.3em; margin-top: 0; }
+        p { color: #57606a; font-size: 1.1em; }
+        .folder-list { list-style: none; padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 1.5rem; }
+        .folder-list li { border-bottom: 1px solid var(--border); }
+        .folder-list li:last-child { border-bottom: none; }
+        .folder-list a { display: flex; align-items: center; gap: 10px; padding: 16px; color: var(--text); text-decoration: none; font-weight: 600; font-size: 1.1em; transition: background 0.2s; }
+        .folder-list a:hover { background-color: var(--hover); color: var(--link); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Offline Knowledge Library</h1>
+        <p>Welcome to your completely offline documentation bundle. Select a project below to browse its files:</p>
+        <ul class="folder-list">"#);
+
+    if let Ok(entries) = fs::read_dir(out_dir) {
+        let mut folders: Vec<String> = entries.filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        folders.sort();
+        for folder in folders {
+            html.push_str(&format!("\n            <li><a href=\"{}/index.html\">📁 {}</a></li>", folder, folder));
+        }
+    }
+
+    html.push_str("\n        </ul>\n    </div>\n</body>\n</html>");
+    fs::write(out_dir.join("index.html"), html).unwrap();
+}
+
+// --- BUILD CORE LOGIC ---
+fn build_single_docs(source: &str, base_out_path: &Path) {
     let mut actual_source = source.to_string();
     let temp_dir = "./.doccrate_temp";
-    let base_out_path = Path::new(out);
 
     let project_name = if source.starts_with("http") || source.starts_with("git@") {
         source.split('/').last().unwrap_or("unknown").replace(".git", "")
@@ -75,15 +155,24 @@ fn build_docs(source: &str, out: &str) {
         Path::new(&source).file_name().unwrap_or_default().to_string_lossy().into_owned()
     };
 
+    println!("🔄 Processing: {}", project_name);
     let out_path = base_out_path.join(&project_name);
 
     if source.starts_with("http") || source.starts_with("git@") {
         let _ = fs::remove_dir_all(temp_dir);
-        Command::new("git").args(["clone", "--depth", "1", &source, temp_dir]).status().unwrap();
+        let status = Command::new("git").args(["clone", "--depth", "1", "-q", source, temp_dir]).status();
+        if status.is_err() || !status.unwrap().success() {
+            eprintln!("❌ Failed to clone {}. Skipping.", source);
+            return;
+        }
         actual_source = temp_dir.to_string();
     }
 
     let source_path = Path::new(&actual_source);
+    if !source_path.exists() {
+        eprintln!("❌ Source not found: {}", actual_source);
+        return;
+    }
     fs::create_dir_all(&out_path).unwrap();
 
     let mut processed_files: Vec<String> = Vec::new();
@@ -119,7 +208,18 @@ fn build_docs(source: &str, out: &str) {
     fs::write(out_path.join("search_index.json"), search_index_json).unwrap();
 
     if actual_source == temp_dir { let _ = fs::remove_dir_all(temp_dir); }
-    println!("✅ Build complete for {}!", project_name);
+}
+
+fn pack_docs(source: &str, out: &str) {
+    println!("📦 Packaging documentation bundle...");
+    let source_path = Path::new(source);
+    if !source_path.exists() || !source_path.is_dir() {
+        eprintln!("Error: Source directory '{}' does not exist.", source);
+        return;
+    }
+    let status = Command::new("zip").current_dir(source).args(["-r", "-q", &format!("../{}", out), "."]).status().unwrap();
+    if status.success() { println!("✅ Successfully created portable bundle: {}", out); } 
+    else { eprintln!("❌ Failed to package the bundle."); }
 }
 
 fn process_directory(base_dir: &Path, current_dir: &Path, out_dir: &Path, file_list: &mut Vec<String>, json_list: &mut Vec<serde_json::Value>) {
@@ -153,11 +253,7 @@ fn process_directory(base_dir: &Path, current_dir: &Path, out_dir: &Path, file_l
                             if fs::write(&out_file, html).is_ok() {
                                 let web_link = format!("{}.html", rel.display()).replace("\\", "/");
                                 file_list.push(web_link.clone());
-                                json_list.push(json!({
-                                    "path": web_link,
-                                    "title": title,
-                                    "content": content
-                                }));
+                                json_list.push(json!({ "path": web_link, "title": title, "content": content }));
                             }
                         }
                     }
