@@ -1,40 +1,38 @@
-# 📚 DocCrate Publisher: Comprehensive User Guide
+# 📚 DocCrate Publisher Guide
 
-Welcome to the DocCrate Publisher documentation. This guide explains how to curate, build, and package offline knowledge bundles.
+Welcome to DocCrate. This guide will walk you through the process of curating, compiling, and packaging offline knowledge bundles (DocPacks) for distribution or sale.
 
-## 1. System Requirements
-DocCrate Core is optimized for fast compilation on environments like Termux (Android) or standard Linux distributions.
-- **Rust Toolchain:** (`cargo`)
-- **System Utilities:** `git` (for cloning) and `zip` (for packaging).
+DocCrate is designed to take raw data—like GitHub repositories, codebases, and local markdown notes—and automatically format them into a highly polished, searchable, and completely offline website. You then package this website into a single file to distribute to your end-users.
 
-## 2. Core CLI Commands
-The engine is driven by the `doccrate-cli` binary.
+Here is the standard 4-step workflow to create a commercial knowledge bundle.
 
-### `build`
-Fetches a source and converts it into styled offline HTML.
-- `--source`: A local directory path (e.g., `./my_notes`) or a remote Git URL (e.g., `https://github.com/...`).
-- `--out`: The destination folder (defaults to `./dist`).
+---
 
-*Example:*
-`cargo run -p doccrate-cli -- build --source ./my_notes --out ./dist`
+## Step 1: Staging Your Sources (`add`)
+DocCrate uses a "Staging Area" so you can combine multiple different projects into one massive master library. You must queue up your sources before building.
 
-### `pack`
-Compresses your generated `./dist` folder into a distributable `.docpack` archive.
-- `--source`: The folder to compress (defaults to `./dist`).
-- `--out`: The final file name (e.g., `Library.docpack`).
+Use the `add` command followed by the local folder path or the Git repository URL.
 
-*Example:*
-`cargo run -p doccrate-cli -- pack --source ./dist --out TangoSplicer_Library.docpack`
-
-## 3. The Multi-Repo Automation Workflow
-For creating massive libraries combining multiple projects, DocCrate uses the `build_all.sh` script.
-
-**How it works:**
-1. **Cleans** the previous `./dist` directory.
-2. **Iterates** through an array of repository URLs, running the `build` command for each.
-3. **Generates** a Master `index.html` at the root of `./dist` linking to all processed projects.
-4. **Packages** the entire library into a `.docpack` file using the `pack` command.
-5. **Serves** the unpacked HTML over a local python server (`python -m http.server 8000`) so the Publisher can preview the results before distribution.
-
-## 4. Distribution
-The final `.docpack` file is a standard zip archive with a proprietary extension. Consumers can simply rename it to `.zip`, extract it, and open `index.html` in any modern web browser to access the fully offline, searchable library.
+**Command:**
+```bash
+cargo run -p doccrate-cli -- add <URL_OR_PATH>
+### Examples                                                  ```bash                                                       cargo run -p doccrate-cli -- add [https://github.com/TangoSplicer/project-aletheia.git](https://github.com/TangoSplicer/project-aletheia.git)
+cargo run -p doccrate-cli -- add ./my_local_notes
+Note: You can run this command as many times as needed to add different repositories to your current build queue.
+​Step 2: Reviewing Your Queue (status)
+​Before compiling, you can verify exactly which repositories and folders are queued up for the build.
+​Command:                                                      ```bash                                                       cargo run -p doccrate-cli -- status
+This outputs a numbered list of all your staged sources.
+​Step 3: Compiling the Library (build)
+​Once your sources are staged, initiate the build process. DocCrate will automatically download the repositories, parse the code and markdown, build the offline search index, and generate a Master Dashboard to navigate it all.
+​Command:                                                      ```bash                                                       cargo run -p doccrate-cli -- build
+What happens here: DocCrate processes everything in your queue and outputs the finished HTML files into a new folder named ./dist.
+​Step 4: Packaging for Distribution (pack)
+​You now have a fully functional offline library sitting in your ./dist folder, but it needs to be compressed into a single, distributable file for your customers.
+​Use the pack command and specify the final name of your product. The file extension should always be .docpack.
+​Command:                                                      ```bash                                                       cargo run -p doccrate-cli -- pack --out <YOUR_CUSTOM_NAME>.docpack
+Example:                                                      ```bash                                                       cargo run -p doccrate-cli -- pack --out AI_Compliance_Bundle_v1.docpack
+🎯 The End-User Experience
+​You now have a single AI_Compliance_Bundle_v1.docpack file on your system. This is the final product you will distribute to your customers.
+​How do they use it?
+Because a .docpack is simply a standard compressed archive, the end-user only needs to rename the file extension to .zip, extract the folder, and double-click the index.html file to instantly browse and search the library completely offline.
