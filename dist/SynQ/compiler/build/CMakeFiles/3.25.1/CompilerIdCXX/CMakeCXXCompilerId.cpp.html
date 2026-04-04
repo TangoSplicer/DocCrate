@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMakeCXXCompilerId.cpp</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-cpp">/* This source file must have a .cpp extension so that all C++ compilers
+   recognize the extension without flags.  Borland does not know .cxx for
+   example.  */
+#ifndef __cplusplus
+# error &quot;A C compiler has been selected for C++.&quot;
+#endif
+
+#if !defined(__has_include)
+/* If the compiler does not have __has_include, pretend the answer is
+   always no.  */
+#  define __has_include(x) 0
+#endif
+
+
+/* Version number components: V=Version, R=Revision, P=Patch
+   Version date components:   YYYY=Year, MM=Month,   DD=Day  */
+
+#if defined(__COMO__)
+# define COMPILER_ID &quot;Comeau&quot;
+  /* __COMO_VERSION__ = VRR */
+# define COMPILER_VERSION_MAJOR DEC(__COMO_VERSION__ / 100)
+# define COMPILER_VERSION_MINOR DEC(__COMO_VERSION__ % 100)
+
+#elif defined(__INTEL_COMPILER) || defined(__ICC)
+# define COMPILER_ID &quot;Intel&quot;
+# if defined(_MSC_VER)
+#  define SIMULATE_ID &quot;MSVC&quot;
+# endif
+# if defined(__GNUC__)
+#  define SIMULATE_ID &quot;GNU&quot;
+# endif
+  /* __INTEL_COMPILER = VRP prior to 2021, and then VVVV for 2021 and later,
+     except that a few beta releases use the old format with V=2021.  */
+# if __INTEL_COMPILER &lt; 2021 || __INTEL_COMPILER == 202110 || __INTEL_COMPILER == 202111
+#  define COMPILER_VERSION_MAJOR DEC(__INTEL_COMPILER/100)
+#  define COMPILER_VERSION_MINOR DEC(__INTEL_COMPILER/10 % 10)
+#  if defined(__INTEL_COMPILER_UPDATE)
+#   define COMPILER_VERSION_PATCH DEC(__INTEL_COMPILER_UPDATE)
+#  else
+#   define COMPILER_VERSION_PATCH DEC(__INTEL_COMPILER   % 10)
+#  endif
+# else
+#  define COMPILER_VERSION_MAJOR DEC(__INTEL_COMPILER)
+#  define COMPILER_VERSION_MINOR DEC(__INTEL_COMPILER_UPDATE)
+   /* The third version component from --version is an update index,
+      but no macro is provided for it.  */
+#  define COMPILER_VERSION_PATCH DEC(0)
+# endif
+# if defined(__INTEL_COMPILER_BUILD_DATE)
+   /* __INTEL_COMPILER_BUILD_DATE = YYYYMMDD */
+#  define COMPILER_VERSION_TWEAK DEC(__INTEL_COMPILER_BUILD_DATE)
+# endif
+# if defined(_MSC_VER)
+   /* _MSC_VER = VVRR */
+#  define SIMULATE_VERSION_MAJOR DEC(_MSC_VER / 100)
+#  define SIMULATE_VERSION_MINOR DEC(_MSC_VER % 100)
+# endif
+# if defined(__GNUC__)
+#  define SIMULATE_VERSION_MAJOR DEC(__GNUC__)
+# elif defined(__GNUG__)
+#  define SIMULATE_VERSION_MAJOR DEC(__GNUG__)
+# endif
+# if defined(__GNUC_MINOR__)
+#  define SIMULATE_VERSION_MINOR DEC(__GNUC_MINOR__)
+# endif
+# if defined(__GNUC_PATCHLEVEL__)
+#  define SIMULATE_VERSION_PATCH DEC(__GNUC_PATCHLEVEL__)
+# endif
+
+#elif (defined(__clang__) &amp;&amp; defined(__INTEL_CLANG_COMPILER)) || defined(__INTEL_LLVM_COMPILER)
+# define COMPILER_ID &quot;IntelLLVM&quot;
+#if defined(_MSC_VER)
+# define SIMULATE_ID &quot;MSVC&quot;
+#endif
+#if defined(__GNUC__)
+# define SIMULATE_ID &quot;GNU&quot;
+#endif
+/* __INTEL_LLVM_COMPILER = VVVVRP prior to 2021.2.0, VVVVRRPP for 2021.2.0 and
+ * later.  Look for 6 digit vs. 8 digit version number to decide encoding.
+ * VVVV is no smaller than the current year when a version is released.
+ */
+#if __INTEL_LLVM_COMPILER &lt; 1000000L
+# define COMPILER_VERSION_MAJOR DEC(__INTEL_LLVM_COMPILER/100)
+# define COMPILER_VERSION_MINOR DEC(__INTEL_LLVM_COMPILER/10 % 10)
+# define COMPILER_VERSION_PATCH DEC(__INTEL_LLVM_COMPILER    % 10)
+#else
+# define COMPILER_VERSION_MAJOR DEC(__INTEL_LLVM_COMPILER/10000)
+# define COMPILER_VERSION_MINOR DEC(__INTEL_LLVM_COMPILER/100 % 100)
+# define COMPILER_VERSION_PATCH DEC(__INTEL_LLVM_COMPILER     % 100)
+#endif
+#if defined(_MSC_VER)
+  /* _MSC_VER = VVRR */
+# define SIMULATE_VERSION_MAJOR DEC(_MSC_VER / 100)
+# define SIMULATE_VERSION_MINOR DEC(_MSC_VER % 100)
+#endif
+#if defined(__GNUC__)
+# define SIMULATE_VERSION_MAJOR DEC(__GNUC__)
+#elif defined(__GNUG__)
+# define SIMULATE_VERSION_MAJOR DEC(__GNUG__)
+#endif
+#if defined(__GNUC_MINOR__)
+# define SIMULATE_VERSION_MINOR DEC(__GNUC_MINOR__)
+#endif
+#if defined(__GNUC_PATCHLEVEL__)
+# define SIMULATE_VERSION_PATCH DEC(__GNUC_PATCHLEVEL__)
+#endif
+
+#elif defined(__PATHCC__)
+# define COMPILER_ID &quot;PathScale&quot;
+# define COMPILER_VERSION_MAJOR DEC(__PATHCC__)
+# define COMPILER_VERSION_MINOR DEC(__PATHCC_MINOR__)
+# if defined(__PATHCC_PATCHLEVEL__)
+#  define COMPILER_VERSION_PATCH DEC(__PATHCC_PATCHLEVEL__)
+# endif
+
+#elif defined(__BORLANDC__) &amp;&amp; defined(__CODEGEARC_VERSION__)
+# define COMPILER_ID &quot;Embarcadero&quot;
+# define COMPILER_VERSION_MAJOR HEX(__CODEGEARC_VERSION__&gt;&gt;24 &amp; 0x00FF)
+# define COMPILER_VERSION_MINOR HEX(__CODEGEARC_VERSION__&gt;&gt;16 &amp; 0x00FF)
+# define COMPILER_VERSION_PATCH DEC(__CODEGEARC_VERSION__     &amp; 0xFFFF)
+
+#elif defined(__BORLANDC__)
+# define COMPILER_ID &quot;Borland&quot;
+  /* __BORLANDC__ = 0xVRR */
+# define COMPILER_VERSION_MAJOR HEX(__BORLANDC__&gt;&gt;8)
+# define COMPILER_VERSION_MINOR HEX(__BORLANDC__ &amp; 0xFF)
+
+#elif defined(__WATCOMC__) &amp;&amp; __WATCOMC__ &lt; 1200
+# define COMPILER_ID &quot;Watcom&quot;
+   /* __WATCOMC__ = VVRR */
+# define COMPILER_VERSION_MAJOR DEC(__WATCOMC__ / 100)
+# define COMPILER_VERSION_MINOR DEC((__WATCOMC__ / 10) % 10)
+# if (__WATCOMC__ % 10) &gt; 0
+#  define COMPILER_VERSION_PATCH DEC(__WATCOMC__ % 10)
+# endif
+
+#elif defined(__WATCOMC__)
+# define COMPILER_ID &quot;OpenWatcom&quot;
+   /* __WATCOMC__ = VVRP + 1100 */
+# define COMPILER_VERSION_MAJOR DEC((__WATCOMC__ - 1100) / 100)
+# define COMPILER_VERSION_MINOR DEC((__WATCOMC__ / 10) % 10)
+# if (__WATCOMC__ % 10) &gt; 0
+#  define COMPILER_VERSION_PATCH DEC(__WATCOMC__ % 10)
+# endif
+
+#elif defined(__SUNPRO_CC)
+# define COMPILER_ID &quot;SunPro&quot;
+# if __SUNPRO_CC &gt;= 0x5100
+   /* __SUNPRO_CC = 0xVRRP */
+#  define COMPILER_VERSION_MAJOR HEX(__SUNPRO_CC&gt;&gt;12)
+#  define COMPILER_VERSION_MINOR HEX(__SUNPRO_CC&gt;&gt;4 &amp; 0xFF)
+#  define COMPILER_VERSION_PATCH HEX(__SUNPRO_CC    &amp; 0xF)
+# else
+   /* __SUNPRO_CC = 0xVRP */
+#  define COMPILER_VERSION_MAJOR HEX(__SUNPRO_CC&gt;&gt;8)
+#  define COMPILER_VERSION_MINOR HEX(__SUNPRO_CC&gt;&gt;4 &amp; 0xF)
+#  define COMPILER_VERSION_PATCH HEX(__SUNPRO_CC    &amp; 0xF)
+# endif
+
+#elif defined(__HP_aCC)
+# define COMPILER_ID &quot;HP&quot;
+  /* __HP_aCC = VVRRPP */
+# define COMPILER_VERSION_MAJOR DEC(__HP_aCC/10000)
+# define COMPILER_VERSION_MINOR DEC(__HP_aCC/100 % 100)
+# define COMPILER_VERSION_PATCH DEC(__HP_aCC     % 100)
+
+#elif defined(__DECCXX)
+# define COMPILER_ID &quot;Compaq&quot;
+  /* __DECCXX_VER = VVRRTPPPP */
+# define COMPILER_VERSION_MAJOR DEC(__DECCXX_VER/10000000)
+# define COMPILER_VERSION_MINOR DEC(__DECCXX_VER/100000  % 100)
+# define COMPILER_VERSION_PATCH DEC(__DECCXX_VER         % 10000)
+
+#elif defined(__IBMCPP__) &amp;&amp; defined(__COMPILER_VER__)
+# define COMPILER_ID &quot;zOS&quot;
+  /* __IBMCPP__ = VRP */
+# define COMPILER_VERSION_MAJOR DEC(__IBMCPP__/100)
+# define COMPILER_VERSION_MINOR DEC(__IBMCPP__/10 % 10)
+# define COMPILER_VERSION_PATCH DEC(__IBMCPP__    % 10)
+
+#elif defined(__open_xl__) &amp;&amp; defined(__clang__)
+# define COMPILER_ID &quot;IBMClang&quot;
+# define COMPILER_VERSION_MAJOR DEC(__open_xl_version__)
+# define COMPILER_VERSION_MINOR DEC(__open_xl_release__)
+# define COMPILER_VERSION_PATCH DEC(__open_xl_modification__)
+# define COMPILER_VERSION_TWEAK DEC(__open_xl_ptf_fix_level__)
+
+
+#elif defined(__ibmxl__) &amp;&amp; defined(__clang__)
+# define COMPILER_ID &quot;XLClang&quot;
+# define COMPILER_VERSION_MAJOR DEC(__ibmxl_version__)
+# define COMPILER_VERSION_MINOR DEC(__ibmxl_release__)
+# define COMPILER_VERSION_PATCH DEC(__ibmxl_modification__)
+# define COMPILER_VERSION_TWEAK DEC(__ibmxl_ptf_fix_level__)
+
+
+#elif defined(__IBMCPP__) &amp;&amp; !defined(__COMPILER_VER__) &amp;&amp; __IBMCPP__ &gt;= 800
+# define COMPILER_ID &quot;XL&quot;
+  /* __IBMCPP__ = VRP */
+# define COMPILER_VERSION_MAJOR DEC(__IBMCPP__/100)
+# define COMPILER_VERSION_MINOR DEC(__IBMCPP__/10 % 10)
+# define COMPILER_VERSION_PATCH DEC(__IBMCPP__    % 10)
+
+#elif defined(__IBMCPP__) &amp;&amp; !defined(__COMPILER_VER__) &amp;&amp; __IBMCPP__ &lt; 800
+# define COMPILER_ID &quot;VisualAge&quot;
+  /* __IBMCPP__ = VRP */
+# define COMPILER_VERSION_MAJOR DEC(__IBMCPP__/100)
+# define COMPILER_VERSION_MINOR DEC(__IBMCPP__/10 % 10)
+# define COMPILER_VERSION_PATCH DEC(__IBMCPP__    % 10)
+
+#elif defined(__NVCOMPILER)
+# define COMPILER_ID &quot;NVHPC&quot;
+# define COMPILER_VERSION_MAJOR DEC(__NVCOMPILER_MAJOR__)
+# define COMPILER_VERSION_MINOR DEC(__NVCOMPILER_MINOR__)
+# if defined(__NVCOMPILER_PATCHLEVEL__)
+#  define COMPILER_VERSION_PATCH DEC(__NVCOMPILER_PATCHLEVEL__)
+# endif
+
+#elif defined(__PGI)
+# define COMPILER_ID &quot;PGI&quot;
+# define COMPILER_VERSION_MAJOR DEC(__PGIC__)
+# define COMPILER_VERSION_MINOR DEC(__PGIC_MINOR__)
+# if defined(__PGIC_PATCHLEVEL__)
+#  define COMPILER_VERSION_PATCH DEC(__PGIC_PATCHLEVEL__)
+# endif
+
+#elif defined(_CRAYC)
+# define COMPILER_ID &quot;Cray&quot;
+# define COMPILER_VERSION_MAJOR DEC(_RELEASE_MAJOR)
+# define COMPILER_VERSION_MINOR DEC(_RELEASE_MINOR)
+
+#elif defined(__TI_COMPILER_VERSION__)
+# define COMPILER_ID &quot;TI&quot;
+  /* __TI_COMPILER_VERSION__ = VVVRRRPPP */
+# define COMPILER_VERSION_MAJOR DEC(__TI_COMPILER_VERSION__/1000000)
+# define COMPILER_VERSION_MINOR DEC(__TI_COMPILER_VERSION__/1000   % 1000)
+# define COMPILER_VERSION_PATCH DEC(__TI_COMPILER_VERSION__        % 1000)
+
+#elif defined(__CLANG_FUJITSU)
+# define COMPILER_ID &quot;FujitsuClang&quot;
+# define COMPILER_VERSION_MAJOR DEC(__FCC_major__)
+# define COMPILER_VERSION_MINOR DEC(__FCC_minor__)
+# define COMPILER_VERSION_PATCH DEC(__FCC_patchlevel__)
+# define COMPILER_VERSION_INTERNAL_STR __clang_version__
+
+
+#elif defined(__FUJITSU)
+# define COMPILER_ID &quot;Fujitsu&quot;
+# if defined(__FCC_version__)
+#   define COMPILER_VERSION __FCC_version__
+# elif defined(__FCC_major__)
+#   define COMPILER_VERSION_MAJOR DEC(__FCC_major__)
+#   define COMPILER_VERSION_MINOR DEC(__FCC_minor__)
+#   define COMPILER_VERSION_PATCH DEC(__FCC_patchlevel__)
+# endif
+# if defined(__fcc_version)
+#   define COMPILER_VERSION_INTERNAL DEC(__fcc_version)
+# elif defined(__FCC_VERSION)
+#   define COMPILER_VERSION_INTERNAL DEC(__FCC_VERSION)
+# endif
+
+
+#elif defined(__ghs__)
+# define COMPILER_ID &quot;GHS&quot;
+/* __GHS_VERSION_NUMBER = VVVVRP */
+# ifdef __GHS_VERSION_NUMBER
+# define COMPILER_VERSION_MAJOR DEC(__GHS_VERSION_NUMBER / 100)
+# define COMPILER_VERSION_MINOR DEC(__GHS_VERSION_NUMBER / 10 % 10)
+# define COMPILER_VERSION_PATCH DEC(__GHS_VERSION_NUMBER      % 10)
+# endif
+
+#elif defined(__TASKING__)
+# define COMPILER_ID &quot;Tasking&quot;
+  # define COMPILER_VERSION_MAJOR DEC(__VERSION__/1000)
+  # define COMPILER_VERSION_MINOR DEC(__VERSION__ % 100)
+# define COMPILER_VERSION_INTERNAL DEC(__VERSION__)
+
+#elif defined(__SCO_VERSION__)
+# define COMPILER_ID &quot;SCO&quot;
+
+#elif defined(__ARMCC_VERSION) &amp;&amp; !defined(__clang__)
+# define COMPILER_ID &quot;ARMCC&quot;
+#if __ARMCC_VERSION &gt;= 1000000
+  /* __ARMCC_VERSION = VRRPPPP */
+  # define COMPILER_VERSION_MAJOR DEC(__ARMCC_VERSION/1000000)
+  # define COMPILER_VERSION_MINOR DEC(__ARMCC_VERSION/10000 % 100)
+  # define COMPILER_VERSION_PATCH DEC(__ARMCC_VERSION     % 10000)
+#else
+  /* __ARMCC_VERSION = VRPPPP */
+  # define COMPILER_VERSION_MAJOR DEC(__ARMCC_VERSION/100000)
+  # define COMPILER_VERSION_MINOR DEC(__ARMCC_VERSION/10000 % 10)
+  # define COMPILER_VERSION_PATCH DEC(__ARMCC_VERSION    % 10000)
+#endif
+
+
+#elif defined(__clang__) &amp;&amp; defined(__apple_build_version__)
+# define COMPILER_ID &quot;AppleClang&quot;
+# if defined(_MSC_VER)
+#  define SIMULATE_ID &quot;MSVC&quot;
+# endif
+# define COMPILER_VERSION_MAJOR DEC(__clang_major__)
+# define COMPILER_VERSION_MINOR DEC(__clang_minor__)
+# define COMPILER_VERSION_PATCH DEC(__clang_patchlevel__)
+# if defined(_MSC_VER)
+   /* _MSC_VER = VVRR */
+#  define SIMULATE_VERSION_MAJOR DEC(_MSC_VER / 100)
+#  define SIMULATE_VERSION_MINOR DEC(_MSC_VER % 100)
+# endif
+# define COMPILER_VERSION_TWEAK DEC(__apple_build_version__)
+
+#elif defined(__clang__) &amp;&amp; defined(__ARMCOMPILER_VERSION)
+# define COMPILER_ID &quot;ARMClang&quot;
+  # define COMPILER_VERSION_MAJOR DEC(__ARMCOMPILER_VERSION/1000000)
+  # define COMPILER_VERSION_MINOR DEC(__ARMCOMPILER_VERSION/10000 % 100)
+  # define COMPILER_VERSION_PATCH DEC(__ARMCOMPILER_VERSION     % 10000)
+# define COMPILER_VERSION_INTERNAL DEC(__ARMCOMPILER_VERSION)
+
+#elif defined(__clang__)
+# define COMPILER_ID &quot;Clang&quot;
+# if defined(_MSC_VER)
+#  define SIMULATE_ID &quot;MSVC&quot;
+# endif
+# define COMPILER_VERSION_MAJOR DEC(__clang_major__)
+# define COMPILER_VERSION_MINOR DEC(__clang_minor__)
+# define COMPILER_VERSION_PATCH DEC(__clang_patchlevel__)
+# if defined(_MSC_VER)
+   /* _MSC_VER = VVRR */
+#  define SIMULATE_VERSION_MAJOR DEC(_MSC_VER / 100)
+#  define SIMULATE_VERSION_MINOR DEC(_MSC_VER % 100)
+# endif
+
+#elif defined(__LCC__) &amp;&amp; (defined(__GNUC__) || defined(__GNUG__) || defined(__MCST__))
+# define COMPILER_ID &quot;LCC&quot;
+# define COMPILER_VERSION_MAJOR DEC(1)
+# if defined(__LCC__)
+#  define COMPILER_VERSION_MINOR DEC(__LCC__- 100)
+# endif
+# if defined(__LCC_MINOR__)
+#  define COMPILER_VERSION_PATCH DEC(__LCC_MINOR__)
+# endif
+# if defined(__GNUC__) &amp;&amp; defined(__GNUC_MINOR__)
+#  define SIMULATE_ID &quot;GNU&quot;
+#  define SIMULATE_VERSION_MAJOR DEC(__GNUC__)
+#  define SIMULATE_VERSION_MINOR DEC(__GNUC_MINOR__)
+#  if defined(__GNUC_PATCHLEVEL__)
+#   define SIMULATE_VERSION_PATCH DEC(__GNUC_PATCHLEVEL__)
+#  endif
+# endif
+
+#elif defined(__GNUC__) || defined(__GNUG__)
+# define COMPILER_ID &quot;GNU&quot;
+# if defined(__GNUC__)
+#  define COMPILER_VERSION_MAJOR DEC(__GNUC__)
+# else
+#  define COMPILER_VERSION_MAJOR DEC(__GNUG__)
+# endif
+# if defined(__GNUC_MINOR__)
+#  define COMPILER_VERSION_MINOR DEC(__GNUC_MINOR__)
+# endif
+# if defined(__GNUC_PATCHLEVEL__)
+#  define COMPILER_VERSION_PATCH DEC(__GNUC_PATCHLEVEL__)
+# endif
+
+#elif defined(_MSC_VER)
+# define COMPILER_ID &quot;MSVC&quot;
+  /* _MSC_VER = VVRR */
+# define COMPILER_VERSION_MAJOR DEC(_MSC_VER / 100)
+# define COMPILER_VERSION_MINOR DEC(_MSC_VER % 100)
+# if defined(_MSC_FULL_VER)
+#  if _MSC_VER &gt;= 1400
+    /* _MSC_FULL_VER = VVRRPPPPP */
+#   define COMPILER_VERSION_PATCH DEC(_MSC_FULL_VER % 100000)
+#  else
+    /* _MSC_FULL_VER = VVRRPPPP */
+#   define COMPILER_VERSION_PATCH DEC(_MSC_FULL_VER % 10000)
+#  endif
+# endif
+# if defined(_MSC_BUILD)
+#  define COMPILER_VERSION_TWEAK DEC(_MSC_BUILD)
+# endif
+
+#elif defined(_ADI_COMPILER)
+# define COMPILER_ID &quot;ADSP&quot;
+#if defined(__VERSIONNUM__)
+  /* __VERSIONNUM__ = 0xVVRRPPTT */
+#  define COMPILER_VERSION_MAJOR DEC(__VERSIONNUM__ &gt;&gt; 24 &amp; 0xFF)
+#  define COMPILER_VERSION_MINOR DEC(__VERSIONNUM__ &gt;&gt; 16 &amp; 0xFF)
+#  define COMPILER_VERSION_PATCH DEC(__VERSIONNUM__ &gt;&gt; 8 &amp; 0xFF)
+#  define COMPILER_VERSION_TWEAK DEC(__VERSIONNUM__ &amp; 0xFF)
+#endif
+
+#elif defined(__IAR_SYSTEMS_ICC__) || defined(__IAR_SYSTEMS_ICC)
+# define COMPILER_ID &quot;IAR&quot;
+# if defined(__VER__) &amp;&amp; defined(__ICCARM__)
+#  define COMPILER_VERSION_MAJOR DEC((__VER__) / 1000000)
+#  define COMPILER_VERSION_MINOR DEC(((__VER__) / 1000) % 1000)
+#  define COMPILER_VERSION_PATCH DEC((__VER__) % 1000)
+#  define COMPILER_VERSION_INTERNAL DEC(__IAR_SYSTEMS_ICC__)
+# elif defined(__VER__) &amp;&amp; (defined(__ICCAVR__) || defined(__ICCRX__) || defined(__ICCRH850__) || defined(__ICCRL78__) || defined(__ICC430__) || defined(__ICCRISCV__) || defined(__ICCV850__) || defined(__ICC8051__) || defined(__ICCSTM8__))
+#  define COMPILER_VERSION_MAJOR DEC((__VER__) / 100)
+#  define COMPILER_VERSION_MINOR DEC((__VER__) - (((__VER__) / 100)*100))
+#  define COMPILER_VERSION_PATCH DEC(__SUBVERSION__)
+#  define COMPILER_VERSION_INTERNAL DEC(__IAR_SYSTEMS_ICC__)
+# endif
+
+
+/* These compilers are either not known or too old to define an
+  identification macro.  Try to identify the platform and guess that
+  it is the native compiler.  */
+#elif defined(__hpux) || defined(__hpua)
+# define COMPILER_ID &quot;HP&quot;
+
+#else /* unknown compiler */
+# define COMPILER_ID &quot;&quot;
+#endif
+
+/* Construct the string literal in pieces to prevent the source from
+   getting matched.  Store it in a pointer rather than an array
+   because some compilers will just produce instructions to fill the
+   array rather than assigning a pointer to a static array.  */
+char const* info_compiler = &quot;INFO&quot; &quot;:&quot; &quot;compiler[&quot; COMPILER_ID &quot;]&quot;;
+#ifdef SIMULATE_ID
+char const* info_simulate = &quot;INFO&quot; &quot;:&quot; &quot;simulate[&quot; SIMULATE_ID &quot;]&quot;;
+#endif
+
+#ifdef __QNXNTO__
+char const* qnxnto = &quot;INFO&quot; &quot;:&quot; &quot;qnxnto[]&quot;;
+#endif
+
+#if defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+char const *info_cray = &quot;INFO&quot; &quot;:&quot; &quot;compiler_wrapper[CrayPrgEnv]&quot;;
+#endif
+
+#define STRINGIFY_HELPER(X) #X
+#define STRINGIFY(X) STRINGIFY_HELPER(X)
+
+/* Identify known platforms by name.  */
+#if defined(__linux) || defined(__linux__) || defined(linux)
+# define PLATFORM_ID &quot;Linux&quot;
+
+#elif defined(__MSYS__)
+# define PLATFORM_ID &quot;MSYS&quot;
+
+#elif defined(__CYGWIN__)
+# define PLATFORM_ID &quot;Cygwin&quot;
+
+#elif defined(__MINGW32__)
+# define PLATFORM_ID &quot;MinGW&quot;
+
+#elif defined(__APPLE__)
+# define PLATFORM_ID &quot;Darwin&quot;
+
+#elif defined(_WIN32) || defined(__WIN32__) || defined(WIN32)
+# define PLATFORM_ID &quot;Windows&quot;
+
+#elif defined(__FreeBSD__) || defined(__FreeBSD)
+# define PLATFORM_ID &quot;FreeBSD&quot;
+
+#elif defined(__NetBSD__) || defined(__NetBSD)
+# define PLATFORM_ID &quot;NetBSD&quot;
+
+#elif defined(__OpenBSD__) || defined(__OPENBSD)
+# define PLATFORM_ID &quot;OpenBSD&quot;
+
+#elif defined(__sun) || defined(sun)
+# define PLATFORM_ID &quot;SunOS&quot;
+
+#elif defined(_AIX) || defined(__AIX) || defined(__AIX__) || defined(__aix) || defined(__aix__)
+# define PLATFORM_ID &quot;AIX&quot;
+
+#elif defined(__hpux) || defined(__hpux__)
+# define PLATFORM_ID &quot;HP-UX&quot;
+
+#elif defined(__HAIKU__)
+# define PLATFORM_ID &quot;Haiku&quot;
+
+#elif defined(__BeOS) || defined(__BEOS__) || defined(_BEOS)
+# define PLATFORM_ID &quot;BeOS&quot;
+
+#elif defined(__QNX__) || defined(__QNXNTO__)
+# define PLATFORM_ID &quot;QNX&quot;
+
+#elif defined(__tru64) || defined(_tru64) || defined(__TRU64__)
+# define PLATFORM_ID &quot;Tru64&quot;
+
+#elif defined(__riscos) || defined(__riscos__)
+# define PLATFORM_ID &quot;RISCos&quot;
+
+#elif defined(__sinix) || defined(__sinix__) || defined(__SINIX__)
+# define PLATFORM_ID &quot;SINIX&quot;
+
+#elif defined(__UNIX_SV__)
+# define PLATFORM_ID &quot;UNIX_SV&quot;
+
+#elif defined(__bsdos__)
+# define PLATFORM_ID &quot;BSDOS&quot;
+
+#elif defined(_MPRAS) || defined(MPRAS)
+# define PLATFORM_ID &quot;MP-RAS&quot;
+
+#elif defined(__osf) || defined(__osf__)
+# define PLATFORM_ID &quot;OSF1&quot;
+
+#elif defined(_SCO_SV) || defined(SCO_SV) || defined(sco_sv)
+# define PLATFORM_ID &quot;SCO_SV&quot;
+
+#elif defined(__ultrix) || defined(__ultrix__) || defined(_ULTRIX)
+# define PLATFORM_ID &quot;ULTRIX&quot;
+
+#elif defined(__XENIX__) || defined(_XENIX) || defined(XENIX)
+# define PLATFORM_ID &quot;Xenix&quot;
+
+#elif defined(__WATCOMC__)
+# if defined(__LINUX__)
+#  define PLATFORM_ID &quot;Linux&quot;
+
+# elif defined(__DOS__)
+#  define PLATFORM_ID &quot;DOS&quot;
+
+# elif defined(__OS2__)
+#  define PLATFORM_ID &quot;OS2&quot;
+
+# elif defined(__WINDOWS__)
+#  define PLATFORM_ID &quot;Windows3x&quot;
+
+# elif defined(__VXWORKS__)
+#  define PLATFORM_ID &quot;VxWorks&quot;
+
+# else /* unknown platform */
+#  define PLATFORM_ID
+# endif
+
+#elif defined(__INTEGRITY)
+# if defined(INT_178B)
+#  define PLATFORM_ID &quot;Integrity178&quot;
+
+# else /* regular Integrity */
+#  define PLATFORM_ID &quot;Integrity&quot;
+# endif
+
+# elif defined(_ADI_COMPILER)
+#  define PLATFORM_ID &quot;ADSP&quot;
+
+#else /* unknown platform */
+# define PLATFORM_ID
+
+#endif
+
+/* For windows compilers MSVC and Intel we can determine
+   the architecture of the compiler being used.  This is because
+   the compilers do not have flags that can change the architecture,
+   but rather depend on which compiler is being used
+*/
+#if defined(_WIN32) &amp;&amp; defined(_MSC_VER)
+# if defined(_M_IA64)
+#  define ARCHITECTURE_ID &quot;IA64&quot;
+
+# elif defined(_M_ARM64EC)
+#  define ARCHITECTURE_ID &quot;ARM64EC&quot;
+
+# elif defined(_M_X64) || defined(_M_AMD64)
+#  define ARCHITECTURE_ID &quot;x64&quot;
+
+# elif defined(_M_IX86)
+#  define ARCHITECTURE_ID &quot;X86&quot;
+
+# elif defined(_M_ARM64)
+#  define ARCHITECTURE_ID &quot;ARM64&quot;
+
+# elif defined(_M_ARM)
+#  if _M_ARM == 4
+#   define ARCHITECTURE_ID &quot;ARMV4I&quot;
+#  elif _M_ARM == 5
+#   define ARCHITECTURE_ID &quot;ARMV5I&quot;
+#  else
+#   define ARCHITECTURE_ID &quot;ARMV&quot; STRINGIFY(_M_ARM)
+#  endif
+
+# elif defined(_M_MIPS)
+#  define ARCHITECTURE_ID &quot;MIPS&quot;
+
+# elif defined(_M_SH)
+#  define ARCHITECTURE_ID &quot;SHx&quot;
+
+# else /* unknown architecture */
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+#elif defined(__WATCOMC__)
+# if defined(_M_I86)
+#  define ARCHITECTURE_ID &quot;I86&quot;
+
+# elif defined(_M_IX86)
+#  define ARCHITECTURE_ID &quot;X86&quot;
+
+# else /* unknown architecture */
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+#elif defined(__IAR_SYSTEMS_ICC__) || defined(__IAR_SYSTEMS_ICC)
+# if defined(__ICCARM__)
+#  define ARCHITECTURE_ID &quot;ARM&quot;
+
+# elif defined(__ICCRX__)
+#  define ARCHITECTURE_ID &quot;RX&quot;
+
+# elif defined(__ICCRH850__)
+#  define ARCHITECTURE_ID &quot;RH850&quot;
+
+# elif defined(__ICCRL78__)
+#  define ARCHITECTURE_ID &quot;RL78&quot;
+
+# elif defined(__ICCRISCV__)
+#  define ARCHITECTURE_ID &quot;RISCV&quot;
+
+# elif defined(__ICCAVR__)
+#  define ARCHITECTURE_ID &quot;AVR&quot;
+
+# elif defined(__ICC430__)
+#  define ARCHITECTURE_ID &quot;MSP430&quot;
+
+# elif defined(__ICCV850__)
+#  define ARCHITECTURE_ID &quot;V850&quot;
+
+# elif defined(__ICC8051__)
+#  define ARCHITECTURE_ID &quot;8051&quot;
+
+# elif defined(__ICCSTM8__)
+#  define ARCHITECTURE_ID &quot;STM8&quot;
+
+# else /* unknown architecture */
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+#elif defined(__ghs__)
+# if defined(__PPC64__)
+#  define ARCHITECTURE_ID &quot;PPC64&quot;
+
+# elif defined(__ppc__)
+#  define ARCHITECTURE_ID &quot;PPC&quot;
+
+# elif defined(__ARM__)
+#  define ARCHITECTURE_ID &quot;ARM&quot;
+
+# elif defined(__x86_64__)
+#  define ARCHITECTURE_ID &quot;x64&quot;
+
+# elif defined(__i386__)
+#  define ARCHITECTURE_ID &quot;X86&quot;
+
+# else /* unknown architecture */
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+#elif defined(__TI_COMPILER_VERSION__)
+# if defined(__TI_ARM__)
+#  define ARCHITECTURE_ID &quot;ARM&quot;
+
+# elif defined(__MSP430__)
+#  define ARCHITECTURE_ID &quot;MSP430&quot;
+
+# elif defined(__TMS320C28XX__)
+#  define ARCHITECTURE_ID &quot;TMS320C28x&quot;
+
+# elif defined(__TMS320C6X__) || defined(_TMS320C6X)
+#  define ARCHITECTURE_ID &quot;TMS320C6x&quot;
+
+# else /* unknown architecture */
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+# elif defined(__ADSPSHARC__)
+#  define ARCHITECTURE_ID &quot;SHARC&quot;
+
+# elif defined(__ADSPBLACKFIN__)
+#  define ARCHITECTURE_ID &quot;Blackfin&quot;
+
+#elif defined(__TASKING__)
+
+# if defined(__CTC__) || defined(__CPTC__)
+#  define ARCHITECTURE_ID &quot;TriCore&quot;
+
+# elif defined(__CMCS__)
+#  define ARCHITECTURE_ID &quot;MCS&quot;
+
+# elif defined(__CARM__)
+#  define ARCHITECTURE_ID &quot;ARM&quot;
+
+# elif defined(__CARC__)
+#  define ARCHITECTURE_ID &quot;ARC&quot;
+
+# elif defined(__C51__)
+#  define ARCHITECTURE_ID &quot;8051&quot;
+
+# elif defined(__CPCP__)
+#  define ARCHITECTURE_ID &quot;PCP&quot;
+
+# else
+#  define ARCHITECTURE_ID &quot;&quot;
+# endif
+
+#else
+#  define ARCHITECTURE_ID
+#endif
+
+/* Convert integer to decimal digit literals.  */
+#define DEC(n)                   \
+  ('0' + (((n) / 10000000)%10)), \
+  ('0' + (((n) / 1000000)%10)),  \
+  ('0' + (((n) / 100000)%10)),   \
+  ('0' + (((n) / 10000)%10)),    \
+  ('0' + (((n) / 1000)%10)),     \
+  ('0' + (((n) / 100)%10)),      \
+  ('0' + (((n) / 10)%10)),       \
+  ('0' +  ((n) % 10))
+
+/* Convert integer to hex digit literals.  */
+#define HEX(n)             \
+  ('0' + ((n)&gt;&gt;28 &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;24 &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;20 &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;16 &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;12 &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;8  &amp; 0xF)), \
+  ('0' + ((n)&gt;&gt;4  &amp; 0xF)), \
+  ('0' + ((n)     &amp; 0xF))
+
+/* Construct a string literal encoding the version number. */
+#ifdef COMPILER_VERSION
+char const* info_version = &quot;INFO&quot; &quot;:&quot; &quot;compiler_version[&quot; COMPILER_VERSION &quot;]&quot;;
+
+/* Construct a string literal encoding the version number components. */
+#elif defined(COMPILER_VERSION_MAJOR)
+char const info_version[] = {
+  'I', 'N', 'F', 'O', ':',
+  'c','o','m','p','i','l','e','r','_','v','e','r','s','i','o','n','[',
+  COMPILER_VERSION_MAJOR,
+# ifdef COMPILER_VERSION_MINOR
+  '.', COMPILER_VERSION_MINOR,
+#  ifdef COMPILER_VERSION_PATCH
+   '.', COMPILER_VERSION_PATCH,
+#   ifdef COMPILER_VERSION_TWEAK
+    '.', COMPILER_VERSION_TWEAK,
+#   endif
+#  endif
+# endif
+  ']','\0'};
+#endif
+
+/* Construct a string literal encoding the internal version number. */
+#ifdef COMPILER_VERSION_INTERNAL
+char const info_version_internal[] = {
+  'I', 'N', 'F', 'O', ':',
+  'c','o','m','p','i','l','e','r','_','v','e','r','s','i','o','n','_',
+  'i','n','t','e','r','n','a','l','[',
+  COMPILER_VERSION_INTERNAL,']','\0'};
+#elif defined(COMPILER_VERSION_INTERNAL_STR)
+char const* info_version_internal = &quot;INFO&quot; &quot;:&quot; &quot;compiler_version_internal[&quot; COMPILER_VERSION_INTERNAL_STR &quot;]&quot;;
+#endif
+
+/* Construct a string literal encoding the version number components. */
+#ifdef SIMULATE_VERSION_MAJOR
+char const info_simulate_version[] = {
+  'I', 'N', 'F', 'O', ':',
+  's','i','m','u','l','a','t','e','_','v','e','r','s','i','o','n','[',
+  SIMULATE_VERSION_MAJOR,
+# ifdef SIMULATE_VERSION_MINOR
+  '.', SIMULATE_VERSION_MINOR,
+#  ifdef SIMULATE_VERSION_PATCH
+   '.', SIMULATE_VERSION_PATCH,
+#   ifdef SIMULATE_VERSION_TWEAK
+    '.', SIMULATE_VERSION_TWEAK,
+#   endif
+#  endif
+# endif
+  ']','\0'};
+#endif
+
+/* Construct the string literal in pieces to prevent the source from
+   getting matched.  Store it in a pointer rather than an array
+   because some compilers will just produce instructions to fill the
+   array rather than assigning a pointer to a static array.  */
+char const* info_platform = &quot;INFO&quot; &quot;:&quot; &quot;platform[&quot; PLATFORM_ID &quot;]&quot;;
+char const* info_arch = &quot;INFO&quot; &quot;:&quot; &quot;arch[&quot; ARCHITECTURE_ID &quot;]&quot;;
+
+
+
+#if defined(__INTEL_COMPILER) &amp;&amp; defined(_MSVC_LANG) &amp;&amp; _MSVC_LANG &lt; 201403L
+#  if defined(__INTEL_CXX11_MODE__)
+#    if defined(__cpp_aggregate_nsdmi)
+#      define CXX_STD 201402L
+#    else
+#      define CXX_STD 201103L
+#    endif
+#  else
+#    define CXX_STD 199711L
+#  endif
+#elif defined(_MSC_VER) &amp;&amp; defined(_MSVC_LANG)
+#  define CXX_STD _MSVC_LANG
+#else
+#  define CXX_STD __cplusplus
+#endif
+
+const char* info_language_standard_default = &quot;INFO&quot; &quot;:&quot; &quot;standard_default[&quot;
+#if CXX_STD &gt; 202002L
+  &quot;23&quot;
+#elif CXX_STD &gt; 201703L
+  &quot;20&quot;
+#elif CXX_STD &gt;= 201703L
+  &quot;17&quot;
+#elif CXX_STD &gt;= 201402L
+  &quot;14&quot;
+#elif CXX_STD &gt;= 201103L
+  &quot;11&quot;
+#else
+  &quot;98&quot;
+#endif
+&quot;]&quot;;
+
+const char* info_language_extensions_default = &quot;INFO&quot; &quot;:&quot; &quot;extensions_default[&quot;
+#if (defined(__clang__) || defined(__GNUC__) || defined(__xlC__) ||           \
+     defined(__TI_COMPILER_VERSION__)) &amp;&amp;                                     \
+  !defined(__STRICT_ANSI__)
+  &quot;ON&quot;
+#else
+  &quot;OFF&quot;
+#endif
+&quot;]&quot;;
+
+/*--------------------------------------------------------------------------*/
+
+int main(int argc, char* argv[])
+{
+  int require = 0;
+  require += info_compiler[argc];
+  require += info_platform[argc];
+  require += info_arch[argc];
+#ifdef COMPILER_VERSION_MAJOR
+  require += info_version[argc];
+#endif
+#ifdef COMPILER_VERSION_INTERNAL
+  require += info_version_internal[argc];
+#endif
+#ifdef SIMULATE_ID
+  require += info_simulate[argc];
+#endif
+#ifdef SIMULATE_VERSION_MAJOR
+  require += info_simulate_version[argc];
+#endif
+#if defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+  require += info_cray[argc];
+#endif
+  require += info_language_standard_default[argc];
+  require += info_language_extensions_default[argc];
+  (void)argv;
+  return require;
+}
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

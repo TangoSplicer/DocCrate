@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>stat.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;Constants/functions for interpreting results of os.stat() and os.lstat().
+
+Suggested usage: from stat import *
+&quot;&quot;&quot;
+
+# Indices for stat struct members in the tuple returned by os.stat()
+
+ST_MODE  = 0
+ST_INO   = 1
+ST_DEV   = 2
+ST_NLINK = 3
+ST_UID   = 4
+ST_GID   = 5
+ST_SIZE  = 6
+ST_ATIME = 7
+ST_MTIME = 8
+ST_CTIME = 9
+
+# Extract bits from the mode
+
+def S_IMODE(mode):
+    &quot;&quot;&quot;Return the portion of the file's mode that can be set by
+    os.chmod().
+    &quot;&quot;&quot;
+    return mode &amp; 0o7777
+
+def S_IFMT(mode):
+    &quot;&quot;&quot;Return the portion of the file's mode that describes the
+    file type.
+    &quot;&quot;&quot;
+    return mode &amp; 0o170000
+
+# Constants used as S_IFMT() for various file types
+# (not all are implemented on all systems)
+
+S_IFDIR  = 0o040000  # directory
+S_IFCHR  = 0o020000  # character device
+S_IFBLK  = 0o060000  # block device
+S_IFREG  = 0o100000  # regular file
+S_IFIFO  = 0o010000  # fifo (named pipe)
+S_IFLNK  = 0o120000  # symbolic link
+S_IFSOCK = 0o140000  # socket file
+# Fallbacks for uncommon platform-specific constants
+S_IFDOOR = 0
+S_IFPORT = 0
+S_IFWHT = 0
+
+# Functions to test for each file type
+
+def S_ISDIR(mode):
+    &quot;&quot;&quot;Return True if mode is from a directory.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFDIR
+
+def S_ISCHR(mode):
+    &quot;&quot;&quot;Return True if mode is from a character special device file.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFCHR
+
+def S_ISBLK(mode):
+    &quot;&quot;&quot;Return True if mode is from a block special device file.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFBLK
+
+def S_ISREG(mode):
+    &quot;&quot;&quot;Return True if mode is from a regular file.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFREG
+
+def S_ISFIFO(mode):
+    &quot;&quot;&quot;Return True if mode is from a FIFO (named pipe).&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFIFO
+
+def S_ISLNK(mode):
+    &quot;&quot;&quot;Return True if mode is from a symbolic link.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFLNK
+
+def S_ISSOCK(mode):
+    &quot;&quot;&quot;Return True if mode is from a socket.&quot;&quot;&quot;
+    return S_IFMT(mode) == S_IFSOCK
+
+def S_ISDOOR(mode):
+    &quot;&quot;&quot;Return True if mode is from a door.&quot;&quot;&quot;
+    return False
+
+def S_ISPORT(mode):
+    &quot;&quot;&quot;Return True if mode is from an event port.&quot;&quot;&quot;
+    return False
+
+def S_ISWHT(mode):
+    &quot;&quot;&quot;Return True if mode is from a whiteout.&quot;&quot;&quot;
+    return False
+
+# Names for permission bits
+
+S_ISUID = 0o4000  # set UID bit
+S_ISGID = 0o2000  # set GID bit
+S_ENFMT = S_ISGID # file locking enforcement
+S_ISVTX = 0o1000  # sticky bit
+S_IREAD = 0o0400  # Unix V7 synonym for S_IRUSR
+S_IWRITE = 0o0200 # Unix V7 synonym for S_IWUSR
+S_IEXEC = 0o0100  # Unix V7 synonym for S_IXUSR
+S_IRWXU = 0o0700  # mask for owner permissions
+S_IRUSR = 0o0400  # read by owner
+S_IWUSR = 0o0200  # write by owner
+S_IXUSR = 0o0100  # execute by owner
+S_IRWXG = 0o0070  # mask for group permissions
+S_IRGRP = 0o0040  # read by group
+S_IWGRP = 0o0020  # write by group
+S_IXGRP = 0o0010  # execute by group
+S_IRWXO = 0o0007  # mask for others (not in group) permissions
+S_IROTH = 0o0004  # read by others
+S_IWOTH = 0o0002  # write by others
+S_IXOTH = 0o0001  # execute by others
+
+# Names for file flags
+
+UF_NODUMP    = 0x00000001  # do not dump file
+UF_IMMUTABLE = 0x00000002  # file may not be changed
+UF_APPEND    = 0x00000004  # file may only be appended to
+UF_OPAQUE    = 0x00000008  # directory is opaque when viewed through a union stack
+UF_NOUNLINK  = 0x00000010  # file may not be renamed or deleted
+UF_COMPRESSED = 0x00000020 # OS X: file is hfs-compressed
+UF_HIDDEN    = 0x00008000  # OS X: file should not be displayed
+SF_ARCHIVED  = 0x00010000  # file may be archived
+SF_IMMUTABLE = 0x00020000  # file may not be changed
+SF_APPEND    = 0x00040000  # file may only be appended to
+SF_NOUNLINK  = 0x00100000  # file may not be renamed or deleted
+SF_SNAPSHOT  = 0x00200000  # file is a snapshot file
+
+
+_filemode_table = (
+    ((S_IFLNK,         &quot;l&quot;),
+     (S_IFSOCK,        &quot;s&quot;),  # Must appear before IFREG and IFDIR as IFSOCK == IFREG | IFDIR
+     (S_IFREG,         &quot;-&quot;),
+     (S_IFBLK,         &quot;b&quot;),
+     (S_IFDIR,         &quot;d&quot;),
+     (S_IFCHR,         &quot;c&quot;),
+     (S_IFIFO,         &quot;p&quot;)),
+
+    ((S_IRUSR,         &quot;r&quot;),),
+    ((S_IWUSR,         &quot;w&quot;),),
+    ((S_IXUSR|S_ISUID, &quot;s&quot;),
+     (S_ISUID,         &quot;S&quot;),
+     (S_IXUSR,         &quot;x&quot;)),
+
+    ((S_IRGRP,         &quot;r&quot;),),
+    ((S_IWGRP,         &quot;w&quot;),),
+    ((S_IXGRP|S_ISGID, &quot;s&quot;),
+     (S_ISGID,         &quot;S&quot;),
+     (S_IXGRP,         &quot;x&quot;)),
+
+    ((S_IROTH,         &quot;r&quot;),),
+    ((S_IWOTH,         &quot;w&quot;),),
+    ((S_IXOTH|S_ISVTX, &quot;t&quot;),
+     (S_ISVTX,         &quot;T&quot;),
+     (S_IXOTH,         &quot;x&quot;))
+)
+
+def filemode(mode):
+    &quot;&quot;&quot;Convert a file's mode to a string of the form '-rwxrwxrwx'.&quot;&quot;&quot;
+    perm = []
+    for table in _filemode_table:
+        for bit, char in table:
+            if mode &amp; bit == bit:
+                perm.append(char)
+                break
+        else:
+            perm.append(&quot;-&quot;)
+    return &quot;&quot;.join(perm)
+
+
+# Windows FILE_ATTRIBUTE constants for interpreting os.stat()'s
+# &quot;st_file_attributes&quot; member
+
+FILE_ATTRIBUTE_ARCHIVE = 32
+FILE_ATTRIBUTE_COMPRESSED = 2048
+FILE_ATTRIBUTE_DEVICE = 64
+FILE_ATTRIBUTE_DIRECTORY = 16
+FILE_ATTRIBUTE_ENCRYPTED = 16384
+FILE_ATTRIBUTE_HIDDEN = 2
+FILE_ATTRIBUTE_INTEGRITY_STREAM = 32768
+FILE_ATTRIBUTE_NORMAL = 128
+FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 8192
+FILE_ATTRIBUTE_NO_SCRUB_DATA = 131072
+FILE_ATTRIBUTE_OFFLINE = 4096
+FILE_ATTRIBUTE_READONLY = 1
+FILE_ATTRIBUTE_REPARSE_POINT = 1024
+FILE_ATTRIBUTE_SPARSE_FILE = 512
+FILE_ATTRIBUTE_SYSTEM = 4
+FILE_ATTRIBUTE_TEMPORARY = 256
+FILE_ATTRIBUTE_VIRTUAL = 65536
+
+
+# If available, use C implementation
+try:
+    from _stat import *
+except ImportError:
+    pass
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

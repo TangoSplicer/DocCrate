@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mac_turkish.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot; Python Character Mapping Codec mac_turkish generated from 'MAPPINGS/VENDORS/APPLE/TURKISH.TXT' with gencodec.py.
+
+&quot;&quot;&quot;#&quot;
+
+import codecs
+
+### Codec APIs
+
+class Codec(codecs.Codec):
+
+    def encode(self,input,errors='strict'):
+        return codecs.charmap_encode(input,errors,encoding_table)
+
+    def decode(self,input,errors='strict'):
+        return codecs.charmap_decode(input,errors,decoding_table)
+
+class IncrementalEncoder(codecs.IncrementalEncoder):
+    def encode(self, input, final=False):
+        return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+
+class IncrementalDecoder(codecs.IncrementalDecoder):
+    def decode(self, input, final=False):
+        return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+
+class StreamWriter(Codec,codecs.StreamWriter):
+    pass
+
+class StreamReader(Codec,codecs.StreamReader):
+    pass
+
+### encodings module API
+
+def getregentry():
+    return codecs.CodecInfo(
+        name='mac-turkish',
+        encode=Codec().encode,
+        decode=Codec().decode,
+        incrementalencoder=IncrementalEncoder,
+        incrementaldecoder=IncrementalDecoder,
+        streamreader=StreamReader,
+        streamwriter=StreamWriter,
+    )
+
+
+### Decoding Table
+
+decoding_table = (
+    '\x00'     #  0x00 -&gt; CONTROL CHARACTER
+    '\x01'     #  0x01 -&gt; CONTROL CHARACTER
+    '\x02'     #  0x02 -&gt; CONTROL CHARACTER
+    '\x03'     #  0x03 -&gt; CONTROL CHARACTER
+    '\x04'     #  0x04 -&gt; CONTROL CHARACTER
+    '\x05'     #  0x05 -&gt; CONTROL CHARACTER
+    '\x06'     #  0x06 -&gt; CONTROL CHARACTER
+    '\x07'     #  0x07 -&gt; CONTROL CHARACTER
+    '\x08'     #  0x08 -&gt; CONTROL CHARACTER
+    '\t'       #  0x09 -&gt; CONTROL CHARACTER
+    '\n'       #  0x0A -&gt; CONTROL CHARACTER
+    '\x0b'     #  0x0B -&gt; CONTROL CHARACTER
+    '\x0c'     #  0x0C -&gt; CONTROL CHARACTER
+    '\r'       #  0x0D -&gt; CONTROL CHARACTER
+    '\x0e'     #  0x0E -&gt; CONTROL CHARACTER
+    '\x0f'     #  0x0F -&gt; CONTROL CHARACTER
+    '\x10'     #  0x10 -&gt; CONTROL CHARACTER
+    '\x11'     #  0x11 -&gt; CONTROL CHARACTER
+    '\x12'     #  0x12 -&gt; CONTROL CHARACTER
+    '\x13'     #  0x13 -&gt; CONTROL CHARACTER
+    '\x14'     #  0x14 -&gt; CONTROL CHARACTER
+    '\x15'     #  0x15 -&gt; CONTROL CHARACTER
+    '\x16'     #  0x16 -&gt; CONTROL CHARACTER
+    '\x17'     #  0x17 -&gt; CONTROL CHARACTER
+    '\x18'     #  0x18 -&gt; CONTROL CHARACTER
+    '\x19'     #  0x19 -&gt; CONTROL CHARACTER
+    '\x1a'     #  0x1A -&gt; CONTROL CHARACTER
+    '\x1b'     #  0x1B -&gt; CONTROL CHARACTER
+    '\x1c'     #  0x1C -&gt; CONTROL CHARACTER
+    '\x1d'     #  0x1D -&gt; CONTROL CHARACTER
+    '\x1e'     #  0x1E -&gt; CONTROL CHARACTER
+    '\x1f'     #  0x1F -&gt; CONTROL CHARACTER
+    ' '        #  0x20 -&gt; SPACE
+    '!'        #  0x21 -&gt; EXCLAMATION MARK
+    '&quot;'        #  0x22 -&gt; QUOTATION MARK
+    '#'        #  0x23 -&gt; NUMBER SIGN
+    '$'        #  0x24 -&gt; DOLLAR SIGN
+    '%'        #  0x25 -&gt; PERCENT SIGN
+    '&amp;'        #  0x26 -&gt; AMPERSAND
+    &quot;'&quot;        #  0x27 -&gt; APOSTROPHE
+    '('        #  0x28 -&gt; LEFT PARENTHESIS
+    ')'        #  0x29 -&gt; RIGHT PARENTHESIS
+    '*'        #  0x2A -&gt; ASTERISK
+    '+'        #  0x2B -&gt; PLUS SIGN
+    ','        #  0x2C -&gt; COMMA
+    '-'        #  0x2D -&gt; HYPHEN-MINUS
+    '.'        #  0x2E -&gt; FULL STOP
+    '/'        #  0x2F -&gt; SOLIDUS
+    '0'        #  0x30 -&gt; DIGIT ZERO
+    '1'        #  0x31 -&gt; DIGIT ONE
+    '2'        #  0x32 -&gt; DIGIT TWO
+    '3'        #  0x33 -&gt; DIGIT THREE
+    '4'        #  0x34 -&gt; DIGIT FOUR
+    '5'        #  0x35 -&gt; DIGIT FIVE
+    '6'        #  0x36 -&gt; DIGIT SIX
+    '7'        #  0x37 -&gt; DIGIT SEVEN
+    '8'        #  0x38 -&gt; DIGIT EIGHT
+    '9'        #  0x39 -&gt; DIGIT NINE
+    ':'        #  0x3A -&gt; COLON
+    ';'        #  0x3B -&gt; SEMICOLON
+    '&lt;'        #  0x3C -&gt; LESS-THAN SIGN
+    '='        #  0x3D -&gt; EQUALS SIGN
+    '&gt;'        #  0x3E -&gt; GREATER-THAN SIGN
+    '?'        #  0x3F -&gt; QUESTION MARK
+    '@'        #  0x40 -&gt; COMMERCIAL AT
+    'A'        #  0x41 -&gt; LATIN CAPITAL LETTER A
+    'B'        #  0x42 -&gt; LATIN CAPITAL LETTER B
+    'C'        #  0x43 -&gt; LATIN CAPITAL LETTER C
+    'D'        #  0x44 -&gt; LATIN CAPITAL LETTER D
+    'E'        #  0x45 -&gt; LATIN CAPITAL LETTER E
+    'F'        #  0x46 -&gt; LATIN CAPITAL LETTER F
+    'G'        #  0x47 -&gt; LATIN CAPITAL LETTER G
+    'H'        #  0x48 -&gt; LATIN CAPITAL LETTER H
+    'I'        #  0x49 -&gt; LATIN CAPITAL LETTER I
+    'J'        #  0x4A -&gt; LATIN CAPITAL LETTER J
+    'K'        #  0x4B -&gt; LATIN CAPITAL LETTER K
+    'L'        #  0x4C -&gt; LATIN CAPITAL LETTER L
+    'M'        #  0x4D -&gt; LATIN CAPITAL LETTER M
+    'N'        #  0x4E -&gt; LATIN CAPITAL LETTER N
+    'O'        #  0x4F -&gt; LATIN CAPITAL LETTER O
+    'P'        #  0x50 -&gt; LATIN CAPITAL LETTER P
+    'Q'        #  0x51 -&gt; LATIN CAPITAL LETTER Q
+    'R'        #  0x52 -&gt; LATIN CAPITAL LETTER R
+    'S'        #  0x53 -&gt; LATIN CAPITAL LETTER S
+    'T'        #  0x54 -&gt; LATIN CAPITAL LETTER T
+    'U'        #  0x55 -&gt; LATIN CAPITAL LETTER U
+    'V'        #  0x56 -&gt; LATIN CAPITAL LETTER V
+    'W'        #  0x57 -&gt; LATIN CAPITAL LETTER W
+    'X'        #  0x58 -&gt; LATIN CAPITAL LETTER X
+    'Y'        #  0x59 -&gt; LATIN CAPITAL LETTER Y
+    'Z'        #  0x5A -&gt; LATIN CAPITAL LETTER Z
+    '['        #  0x5B -&gt; LEFT SQUARE BRACKET
+    '\\'       #  0x5C -&gt; REVERSE SOLIDUS
+    ']'        #  0x5D -&gt; RIGHT SQUARE BRACKET
+    '^'        #  0x5E -&gt; CIRCUMFLEX ACCENT
+    '_'        #  0x5F -&gt; LOW LINE
+    '`'        #  0x60 -&gt; GRAVE ACCENT
+    'a'        #  0x61 -&gt; LATIN SMALL LETTER A
+    'b'        #  0x62 -&gt; LATIN SMALL LETTER B
+    'c'        #  0x63 -&gt; LATIN SMALL LETTER C
+    'd'        #  0x64 -&gt; LATIN SMALL LETTER D
+    'e'        #  0x65 -&gt; LATIN SMALL LETTER E
+    'f'        #  0x66 -&gt; LATIN SMALL LETTER F
+    'g'        #  0x67 -&gt; LATIN SMALL LETTER G
+    'h'        #  0x68 -&gt; LATIN SMALL LETTER H
+    'i'        #  0x69 -&gt; LATIN SMALL LETTER I
+    'j'        #  0x6A -&gt; LATIN SMALL LETTER J
+    'k'        #  0x6B -&gt; LATIN SMALL LETTER K
+    'l'        #  0x6C -&gt; LATIN SMALL LETTER L
+    'm'        #  0x6D -&gt; LATIN SMALL LETTER M
+    'n'        #  0x6E -&gt; LATIN SMALL LETTER N
+    'o'        #  0x6F -&gt; LATIN SMALL LETTER O
+    'p'        #  0x70 -&gt; LATIN SMALL LETTER P
+    'q'        #  0x71 -&gt; LATIN SMALL LETTER Q
+    'r'        #  0x72 -&gt; LATIN SMALL LETTER R
+    's'        #  0x73 -&gt; LATIN SMALL LETTER S
+    't'        #  0x74 -&gt; LATIN SMALL LETTER T
+    'u'        #  0x75 -&gt; LATIN SMALL LETTER U
+    'v'        #  0x76 -&gt; LATIN SMALL LETTER V
+    'w'        #  0x77 -&gt; LATIN SMALL LETTER W
+    'x'        #  0x78 -&gt; LATIN SMALL LETTER X
+    'y'        #  0x79 -&gt; LATIN SMALL LETTER Y
+    'z'        #  0x7A -&gt; LATIN SMALL LETTER Z
+    '{'        #  0x7B -&gt; LEFT CURLY BRACKET
+    '|'        #  0x7C -&gt; VERTICAL LINE
+    '}'        #  0x7D -&gt; RIGHT CURLY BRACKET
+    '~'        #  0x7E -&gt; TILDE
+    '\x7f'     #  0x7F -&gt; CONTROL CHARACTER
+    '\xc4'     #  0x80 -&gt; LATIN CAPITAL LETTER A WITH DIAERESIS
+    '\xc5'     #  0x81 -&gt; LATIN CAPITAL LETTER A WITH RING ABOVE
+    '\xc7'     #  0x82 -&gt; LATIN CAPITAL LETTER C WITH CEDILLA
+    '\xc9'     #  0x83 -&gt; LATIN CAPITAL LETTER E WITH ACUTE
+    '\xd1'     #  0x84 -&gt; LATIN CAPITAL LETTER N WITH TILDE
+    '\xd6'     #  0x85 -&gt; LATIN CAPITAL LETTER O WITH DIAERESIS
+    '\xdc'     #  0x86 -&gt; LATIN CAPITAL LETTER U WITH DIAERESIS
+    '\xe1'     #  0x87 -&gt; LATIN SMALL LETTER A WITH ACUTE
+    '\xe0'     #  0x88 -&gt; LATIN SMALL LETTER A WITH GRAVE
+    '\xe2'     #  0x89 -&gt; LATIN SMALL LETTER A WITH CIRCUMFLEX
+    '\xe4'     #  0x8A -&gt; LATIN SMALL LETTER A WITH DIAERESIS
+    '\xe3'     #  0x8B -&gt; LATIN SMALL LETTER A WITH TILDE
+    '\xe5'     #  0x8C -&gt; LATIN SMALL LETTER A WITH RING ABOVE
+    '\xe7'     #  0x8D -&gt; LATIN SMALL LETTER C WITH CEDILLA
+    '\xe9'     #  0x8E -&gt; LATIN SMALL LETTER E WITH ACUTE
+    '\xe8'     #  0x8F -&gt; LATIN SMALL LETTER E WITH GRAVE
+    '\xea'     #  0x90 -&gt; LATIN SMALL LETTER E WITH CIRCUMFLEX
+    '\xeb'     #  0x91 -&gt; LATIN SMALL LETTER E WITH DIAERESIS
+    '\xed'     #  0x92 -&gt; LATIN SMALL LETTER I WITH ACUTE
+    '\xec'     #  0x93 -&gt; LATIN SMALL LETTER I WITH GRAVE
+    '\xee'     #  0x94 -&gt; LATIN SMALL LETTER I WITH CIRCUMFLEX
+    '\xef'     #  0x95 -&gt; LATIN SMALL LETTER I WITH DIAERESIS
+    '\xf1'     #  0x96 -&gt; LATIN SMALL LETTER N WITH TILDE
+    '\xf3'     #  0x97 -&gt; LATIN SMALL LETTER O WITH ACUTE
+    '\xf2'     #  0x98 -&gt; LATIN SMALL LETTER O WITH GRAVE
+    '\xf4'     #  0x99 -&gt; LATIN SMALL LETTER O WITH CIRCUMFLEX
+    '\xf6'     #  0x9A -&gt; LATIN SMALL LETTER O WITH DIAERESIS
+    '\xf5'     #  0x9B -&gt; LATIN SMALL LETTER O WITH TILDE
+    '\xfa'     #  0x9C -&gt; LATIN SMALL LETTER U WITH ACUTE
+    '\xf9'     #  0x9D -&gt; LATIN SMALL LETTER U WITH GRAVE
+    '\xfb'     #  0x9E -&gt; LATIN SMALL LETTER U WITH CIRCUMFLEX
+    '\xfc'     #  0x9F -&gt; LATIN SMALL LETTER U WITH DIAERESIS
+    '\u2020'   #  0xA0 -&gt; DAGGER
+    '\xb0'     #  0xA1 -&gt; DEGREE SIGN
+    '\xa2'     #  0xA2 -&gt; CENT SIGN
+    '\xa3'     #  0xA3 -&gt; POUND SIGN
+    '\xa7'     #  0xA4 -&gt; SECTION SIGN
+    '\u2022'   #  0xA5 -&gt; BULLET
+    '\xb6'     #  0xA6 -&gt; PILCROW SIGN
+    '\xdf'     #  0xA7 -&gt; LATIN SMALL LETTER SHARP S
+    '\xae'     #  0xA8 -&gt; REGISTERED SIGN
+    '\xa9'     #  0xA9 -&gt; COPYRIGHT SIGN
+    '\u2122'   #  0xAA -&gt; TRADE MARK SIGN
+    '\xb4'     #  0xAB -&gt; ACUTE ACCENT
+    '\xa8'     #  0xAC -&gt; DIAERESIS
+    '\u2260'   #  0xAD -&gt; NOT EQUAL TO
+    '\xc6'     #  0xAE -&gt; LATIN CAPITAL LETTER AE
+    '\xd8'     #  0xAF -&gt; LATIN CAPITAL LETTER O WITH STROKE
+    '\u221e'   #  0xB0 -&gt; INFINITY
+    '\xb1'     #  0xB1 -&gt; PLUS-MINUS SIGN
+    '\u2264'   #  0xB2 -&gt; LESS-THAN OR EQUAL TO
+    '\u2265'   #  0xB3 -&gt; GREATER-THAN OR EQUAL TO
+    '\xa5'     #  0xB4 -&gt; YEN SIGN
+    '\xb5'     #  0xB5 -&gt; MICRO SIGN
+    '\u2202'   #  0xB6 -&gt; PARTIAL DIFFERENTIAL
+    '\u2211'   #  0xB7 -&gt; N-ARY SUMMATION
+    '\u220f'   #  0xB8 -&gt; N-ARY PRODUCT
+    '\u03c0'   #  0xB9 -&gt; GREEK SMALL LETTER PI
+    '\u222b'   #  0xBA -&gt; INTEGRAL
+    '\xaa'     #  0xBB -&gt; FEMININE ORDINAL INDICATOR
+    '\xba'     #  0xBC -&gt; MASCULINE ORDINAL INDICATOR
+    '\u03a9'   #  0xBD -&gt; GREEK CAPITAL LETTER OMEGA
+    '\xe6'     #  0xBE -&gt; LATIN SMALL LETTER AE
+    '\xf8'     #  0xBF -&gt; LATIN SMALL LETTER O WITH STROKE
+    '\xbf'     #  0xC0 -&gt; INVERTED QUESTION MARK
+    '\xa1'     #  0xC1 -&gt; INVERTED EXCLAMATION MARK
+    '\xac'     #  0xC2 -&gt; NOT SIGN
+    '\u221a'   #  0xC3 -&gt; SQUARE ROOT
+    '\u0192'   #  0xC4 -&gt; LATIN SMALL LETTER F WITH HOOK
+    '\u2248'   #  0xC5 -&gt; ALMOST EQUAL TO
+    '\u2206'   #  0xC6 -&gt; INCREMENT
+    '\xab'     #  0xC7 -&gt; LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+    '\xbb'     #  0xC8 -&gt; RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+    '\u2026'   #  0xC9 -&gt; HORIZONTAL ELLIPSIS
+    '\xa0'     #  0xCA -&gt; NO-BREAK SPACE
+    '\xc0'     #  0xCB -&gt; LATIN CAPITAL LETTER A WITH GRAVE
+    '\xc3'     #  0xCC -&gt; LATIN CAPITAL LETTER A WITH TILDE
+    '\xd5'     #  0xCD -&gt; LATIN CAPITAL LETTER O WITH TILDE
+    '\u0152'   #  0xCE -&gt; LATIN CAPITAL LIGATURE OE
+    '\u0153'   #  0xCF -&gt; LATIN SMALL LIGATURE OE
+    '\u2013'   #  0xD0 -&gt; EN DASH
+    '\u2014'   #  0xD1 -&gt; EM DASH
+    '\u201c'   #  0xD2 -&gt; LEFT DOUBLE QUOTATION MARK
+    '\u201d'   #  0xD3 -&gt; RIGHT DOUBLE QUOTATION MARK
+    '\u2018'   #  0xD4 -&gt; LEFT SINGLE QUOTATION MARK
+    '\u2019'   #  0xD5 -&gt; RIGHT SINGLE QUOTATION MARK
+    '\xf7'     #  0xD6 -&gt; DIVISION SIGN
+    '\u25ca'   #  0xD7 -&gt; LOZENGE
+    '\xff'     #  0xD8 -&gt; LATIN SMALL LETTER Y WITH DIAERESIS
+    '\u0178'   #  0xD9 -&gt; LATIN CAPITAL LETTER Y WITH DIAERESIS
+    '\u011e'   #  0xDA -&gt; LATIN CAPITAL LETTER G WITH BREVE
+    '\u011f'   #  0xDB -&gt; LATIN SMALL LETTER G WITH BREVE
+    '\u0130'   #  0xDC -&gt; LATIN CAPITAL LETTER I WITH DOT ABOVE
+    '\u0131'   #  0xDD -&gt; LATIN SMALL LETTER DOTLESS I
+    '\u015e'   #  0xDE -&gt; LATIN CAPITAL LETTER S WITH CEDILLA
+    '\u015f'   #  0xDF -&gt; LATIN SMALL LETTER S WITH CEDILLA
+    '\u2021'   #  0xE0 -&gt; DOUBLE DAGGER
+    '\xb7'     #  0xE1 -&gt; MIDDLE DOT
+    '\u201a'   #  0xE2 -&gt; SINGLE LOW-9 QUOTATION MARK
+    '\u201e'   #  0xE3 -&gt; DOUBLE LOW-9 QUOTATION MARK
+    '\u2030'   #  0xE4 -&gt; PER MILLE SIGN
+    '\xc2'     #  0xE5 -&gt; LATIN CAPITAL LETTER A WITH CIRCUMFLEX
+    '\xca'     #  0xE6 -&gt; LATIN CAPITAL LETTER E WITH CIRCUMFLEX
+    '\xc1'     #  0xE7 -&gt; LATIN CAPITAL LETTER A WITH ACUTE
+    '\xcb'     #  0xE8 -&gt; LATIN CAPITAL LETTER E WITH DIAERESIS
+    '\xc8'     #  0xE9 -&gt; LATIN CAPITAL LETTER E WITH GRAVE
+    '\xcd'     #  0xEA -&gt; LATIN CAPITAL LETTER I WITH ACUTE
+    '\xce'     #  0xEB -&gt; LATIN CAPITAL LETTER I WITH CIRCUMFLEX
+    '\xcf'     #  0xEC -&gt; LATIN CAPITAL LETTER I WITH DIAERESIS
+    '\xcc'     #  0xED -&gt; LATIN CAPITAL LETTER I WITH GRAVE
+    '\xd3'     #  0xEE -&gt; LATIN CAPITAL LETTER O WITH ACUTE
+    '\xd4'     #  0xEF -&gt; LATIN CAPITAL LETTER O WITH CIRCUMFLEX
+    '\uf8ff'   #  0xF0 -&gt; Apple logo
+    '\xd2'     #  0xF1 -&gt; LATIN CAPITAL LETTER O WITH GRAVE
+    '\xda'     #  0xF2 -&gt; LATIN CAPITAL LETTER U WITH ACUTE
+    '\xdb'     #  0xF3 -&gt; LATIN CAPITAL LETTER U WITH CIRCUMFLEX
+    '\xd9'     #  0xF4 -&gt; LATIN CAPITAL LETTER U WITH GRAVE
+    '\uf8a0'   #  0xF5 -&gt; undefined1
+    '\u02c6'   #  0xF6 -&gt; MODIFIER LETTER CIRCUMFLEX ACCENT
+    '\u02dc'   #  0xF7 -&gt; SMALL TILDE
+    '\xaf'     #  0xF8 -&gt; MACRON
+    '\u02d8'   #  0xF9 -&gt; BREVE
+    '\u02d9'   #  0xFA -&gt; DOT ABOVE
+    '\u02da'   #  0xFB -&gt; RING ABOVE
+    '\xb8'     #  0xFC -&gt; CEDILLA
+    '\u02dd'   #  0xFD -&gt; DOUBLE ACUTE ACCENT
+    '\u02db'   #  0xFE -&gt; OGONEK
+    '\u02c7'   #  0xFF -&gt; CARON
+)
+
+### Encoding table
+encoding_table=codecs.charmap_build(decoding_table)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cp856.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot; Python Character Mapping Codec cp856 generated from 'MAPPINGS/VENDORS/MISC/CP856.TXT' with gencodec.py.
+
+&quot;&quot;&quot;#&quot;
+
+import codecs
+
+### Codec APIs
+
+class Codec(codecs.Codec):
+
+    def encode(self,input,errors='strict'):
+        return codecs.charmap_encode(input,errors,encoding_table)
+
+    def decode(self,input,errors='strict'):
+        return codecs.charmap_decode(input,errors,decoding_table)
+
+class IncrementalEncoder(codecs.IncrementalEncoder):
+    def encode(self, input, final=False):
+        return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+
+class IncrementalDecoder(codecs.IncrementalDecoder):
+    def decode(self, input, final=False):
+        return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+
+class StreamWriter(Codec,codecs.StreamWriter):
+    pass
+
+class StreamReader(Codec,codecs.StreamReader):
+    pass
+
+### encodings module API
+
+def getregentry():
+    return codecs.CodecInfo(
+        name='cp856',
+        encode=Codec().encode,
+        decode=Codec().decode,
+        incrementalencoder=IncrementalEncoder,
+        incrementaldecoder=IncrementalDecoder,
+        streamreader=StreamReader,
+        streamwriter=StreamWriter,
+    )
+
+
+### Decoding Table
+
+decoding_table = (
+    '\x00'     #  0x00 -&gt; NULL
+    '\x01'     #  0x01 -&gt; START OF HEADING
+    '\x02'     #  0x02 -&gt; START OF TEXT
+    '\x03'     #  0x03 -&gt; END OF TEXT
+    '\x04'     #  0x04 -&gt; END OF TRANSMISSION
+    '\x05'     #  0x05 -&gt; ENQUIRY
+    '\x06'     #  0x06 -&gt; ACKNOWLEDGE
+    '\x07'     #  0x07 -&gt; BELL
+    '\x08'     #  0x08 -&gt; BACKSPACE
+    '\t'       #  0x09 -&gt; HORIZONTAL TABULATION
+    '\n'       #  0x0A -&gt; LINE FEED
+    '\x0b'     #  0x0B -&gt; VERTICAL TABULATION
+    '\x0c'     #  0x0C -&gt; FORM FEED
+    '\r'       #  0x0D -&gt; CARRIAGE RETURN
+    '\x0e'     #  0x0E -&gt; SHIFT OUT
+    '\x0f'     #  0x0F -&gt; SHIFT IN
+    '\x10'     #  0x10 -&gt; DATA LINK ESCAPE
+    '\x11'     #  0x11 -&gt; DEVICE CONTROL ONE
+    '\x12'     #  0x12 -&gt; DEVICE CONTROL TWO
+    '\x13'     #  0x13 -&gt; DEVICE CONTROL THREE
+    '\x14'     #  0x14 -&gt; DEVICE CONTROL FOUR
+    '\x15'     #  0x15 -&gt; NEGATIVE ACKNOWLEDGE
+    '\x16'     #  0x16 -&gt; SYNCHRONOUS IDLE
+    '\x17'     #  0x17 -&gt; END OF TRANSMISSION BLOCK
+    '\x18'     #  0x18 -&gt; CANCEL
+    '\x19'     #  0x19 -&gt; END OF MEDIUM
+    '\x1a'     #  0x1A -&gt; SUBSTITUTE
+    '\x1b'     #  0x1B -&gt; ESCAPE
+    '\x1c'     #  0x1C -&gt; FILE SEPARATOR
+    '\x1d'     #  0x1D -&gt; GROUP SEPARATOR
+    '\x1e'     #  0x1E -&gt; RECORD SEPARATOR
+    '\x1f'     #  0x1F -&gt; UNIT SEPARATOR
+    ' '        #  0x20 -&gt; SPACE
+    '!'        #  0x21 -&gt; EXCLAMATION MARK
+    '&quot;'        #  0x22 -&gt; QUOTATION MARK
+    '#'        #  0x23 -&gt; NUMBER SIGN
+    '$'        #  0x24 -&gt; DOLLAR SIGN
+    '%'        #  0x25 -&gt; PERCENT SIGN
+    '&amp;'        #  0x26 -&gt; AMPERSAND
+    &quot;'&quot;        #  0x27 -&gt; APOSTROPHE
+    '('        #  0x28 -&gt; LEFT PARENTHESIS
+    ')'        #  0x29 -&gt; RIGHT PARENTHESIS
+    '*'        #  0x2A -&gt; ASTERISK
+    '+'        #  0x2B -&gt; PLUS SIGN
+    ','        #  0x2C -&gt; COMMA
+    '-'        #  0x2D -&gt; HYPHEN-MINUS
+    '.'        #  0x2E -&gt; FULL STOP
+    '/'        #  0x2F -&gt; SOLIDUS
+    '0'        #  0x30 -&gt; DIGIT ZERO
+    '1'        #  0x31 -&gt; DIGIT ONE
+    '2'        #  0x32 -&gt; DIGIT TWO
+    '3'        #  0x33 -&gt; DIGIT THREE
+    '4'        #  0x34 -&gt; DIGIT FOUR
+    '5'        #  0x35 -&gt; DIGIT FIVE
+    '6'        #  0x36 -&gt; DIGIT SIX
+    '7'        #  0x37 -&gt; DIGIT SEVEN
+    '8'        #  0x38 -&gt; DIGIT EIGHT
+    '9'        #  0x39 -&gt; DIGIT NINE
+    ':'        #  0x3A -&gt; COLON
+    ';'        #  0x3B -&gt; SEMICOLON
+    '&lt;'        #  0x3C -&gt; LESS-THAN SIGN
+    '='        #  0x3D -&gt; EQUALS SIGN
+    '&gt;'        #  0x3E -&gt; GREATER-THAN SIGN
+    '?'        #  0x3F -&gt; QUESTION MARK
+    '@'        #  0x40 -&gt; COMMERCIAL AT
+    'A'        #  0x41 -&gt; LATIN CAPITAL LETTER A
+    'B'        #  0x42 -&gt; LATIN CAPITAL LETTER B
+    'C'        #  0x43 -&gt; LATIN CAPITAL LETTER C
+    'D'        #  0x44 -&gt; LATIN CAPITAL LETTER D
+    'E'        #  0x45 -&gt; LATIN CAPITAL LETTER E
+    'F'        #  0x46 -&gt; LATIN CAPITAL LETTER F
+    'G'        #  0x47 -&gt; LATIN CAPITAL LETTER G
+    'H'        #  0x48 -&gt; LATIN CAPITAL LETTER H
+    'I'        #  0x49 -&gt; LATIN CAPITAL LETTER I
+    'J'        #  0x4A -&gt; LATIN CAPITAL LETTER J
+    'K'        #  0x4B -&gt; LATIN CAPITAL LETTER K
+    'L'        #  0x4C -&gt; LATIN CAPITAL LETTER L
+    'M'        #  0x4D -&gt; LATIN CAPITAL LETTER M
+    'N'        #  0x4E -&gt; LATIN CAPITAL LETTER N
+    'O'        #  0x4F -&gt; LATIN CAPITAL LETTER O
+    'P'        #  0x50 -&gt; LATIN CAPITAL LETTER P
+    'Q'        #  0x51 -&gt; LATIN CAPITAL LETTER Q
+    'R'        #  0x52 -&gt; LATIN CAPITAL LETTER R
+    'S'        #  0x53 -&gt; LATIN CAPITAL LETTER S
+    'T'        #  0x54 -&gt; LATIN CAPITAL LETTER T
+    'U'        #  0x55 -&gt; LATIN CAPITAL LETTER U
+    'V'        #  0x56 -&gt; LATIN CAPITAL LETTER V
+    'W'        #  0x57 -&gt; LATIN CAPITAL LETTER W
+    'X'        #  0x58 -&gt; LATIN CAPITAL LETTER X
+    'Y'        #  0x59 -&gt; LATIN CAPITAL LETTER Y
+    'Z'        #  0x5A -&gt; LATIN CAPITAL LETTER Z
+    '['        #  0x5B -&gt; LEFT SQUARE BRACKET
+    '\\'       #  0x5C -&gt; REVERSE SOLIDUS
+    ']'        #  0x5D -&gt; RIGHT SQUARE BRACKET
+    '^'        #  0x5E -&gt; CIRCUMFLEX ACCENT
+    '_'        #  0x5F -&gt; LOW LINE
+    '`'        #  0x60 -&gt; GRAVE ACCENT
+    'a'        #  0x61 -&gt; LATIN SMALL LETTER A
+    'b'        #  0x62 -&gt; LATIN SMALL LETTER B
+    'c'        #  0x63 -&gt; LATIN SMALL LETTER C
+    'd'        #  0x64 -&gt; LATIN SMALL LETTER D
+    'e'        #  0x65 -&gt; LATIN SMALL LETTER E
+    'f'        #  0x66 -&gt; LATIN SMALL LETTER F
+    'g'        #  0x67 -&gt; LATIN SMALL LETTER G
+    'h'        #  0x68 -&gt; LATIN SMALL LETTER H
+    'i'        #  0x69 -&gt; LATIN SMALL LETTER I
+    'j'        #  0x6A -&gt; LATIN SMALL LETTER J
+    'k'        #  0x6B -&gt; LATIN SMALL LETTER K
+    'l'        #  0x6C -&gt; LATIN SMALL LETTER L
+    'm'        #  0x6D -&gt; LATIN SMALL LETTER M
+    'n'        #  0x6E -&gt; LATIN SMALL LETTER N
+    'o'        #  0x6F -&gt; LATIN SMALL LETTER O
+    'p'        #  0x70 -&gt; LATIN SMALL LETTER P
+    'q'        #  0x71 -&gt; LATIN SMALL LETTER Q
+    'r'        #  0x72 -&gt; LATIN SMALL LETTER R
+    's'        #  0x73 -&gt; LATIN SMALL LETTER S
+    't'        #  0x74 -&gt; LATIN SMALL LETTER T
+    'u'        #  0x75 -&gt; LATIN SMALL LETTER U
+    'v'        #  0x76 -&gt; LATIN SMALL LETTER V
+    'w'        #  0x77 -&gt; LATIN SMALL LETTER W
+    'x'        #  0x78 -&gt; LATIN SMALL LETTER X
+    'y'        #  0x79 -&gt; LATIN SMALL LETTER Y
+    'z'        #  0x7A -&gt; LATIN SMALL LETTER Z
+    '{'        #  0x7B -&gt; LEFT CURLY BRACKET
+    '|'        #  0x7C -&gt; VERTICAL LINE
+    '}'        #  0x7D -&gt; RIGHT CURLY BRACKET
+    '~'        #  0x7E -&gt; TILDE
+    '\x7f'     #  0x7F -&gt; DELETE
+    '\u05d0'   #  0x80 -&gt; HEBREW LETTER ALEF
+    '\u05d1'   #  0x81 -&gt; HEBREW LETTER BET
+    '\u05d2'   #  0x82 -&gt; HEBREW LETTER GIMEL
+    '\u05d3'   #  0x83 -&gt; HEBREW LETTER DALET
+    '\u05d4'   #  0x84 -&gt; HEBREW LETTER HE
+    '\u05d5'   #  0x85 -&gt; HEBREW LETTER VAV
+    '\u05d6'   #  0x86 -&gt; HEBREW LETTER ZAYIN
+    '\u05d7'   #  0x87 -&gt; HEBREW LETTER HET
+    '\u05d8'   #  0x88 -&gt; HEBREW LETTER TET
+    '\u05d9'   #  0x89 -&gt; HEBREW LETTER YOD
+    '\u05da'   #  0x8A -&gt; HEBREW LETTER FINAL KAF
+    '\u05db'   #  0x8B -&gt; HEBREW LETTER KAF
+    '\u05dc'   #  0x8C -&gt; HEBREW LETTER LAMED
+    '\u05dd'   #  0x8D -&gt; HEBREW LETTER FINAL MEM
+    '\u05de'   #  0x8E -&gt; HEBREW LETTER MEM
+    '\u05df'   #  0x8F -&gt; HEBREW LETTER FINAL NUN
+    '\u05e0'   #  0x90 -&gt; HEBREW LETTER NUN
+    '\u05e1'   #  0x91 -&gt; HEBREW LETTER SAMEKH
+    '\u05e2'   #  0x92 -&gt; HEBREW LETTER AYIN
+    '\u05e3'   #  0x93 -&gt; HEBREW LETTER FINAL PE
+    '\u05e4'   #  0x94 -&gt; HEBREW LETTER PE
+    '\u05e5'   #  0x95 -&gt; HEBREW LETTER FINAL TSADI
+    '\u05e6'   #  0x96 -&gt; HEBREW LETTER TSADI
+    '\u05e7'   #  0x97 -&gt; HEBREW LETTER QOF
+    '\u05e8'   #  0x98 -&gt; HEBREW LETTER RESH
+    '\u05e9'   #  0x99 -&gt; HEBREW LETTER SHIN
+    '\u05ea'   #  0x9A -&gt; HEBREW LETTER TAV
+    '\ufffe'   #  0x9B -&gt; UNDEFINED
+    '\xa3'     #  0x9C -&gt; POUND SIGN
+    '\ufffe'   #  0x9D -&gt; UNDEFINED
+    '\xd7'     #  0x9E -&gt; MULTIPLICATION SIGN
+    '\ufffe'   #  0x9F -&gt; UNDEFINED
+    '\ufffe'   #  0xA0 -&gt; UNDEFINED
+    '\ufffe'   #  0xA1 -&gt; UNDEFINED
+    '\ufffe'   #  0xA2 -&gt; UNDEFINED
+    '\ufffe'   #  0xA3 -&gt; UNDEFINED
+    '\ufffe'   #  0xA4 -&gt; UNDEFINED
+    '\ufffe'   #  0xA5 -&gt; UNDEFINED
+    '\ufffe'   #  0xA6 -&gt; UNDEFINED
+    '\ufffe'   #  0xA7 -&gt; UNDEFINED
+    '\ufffe'   #  0xA8 -&gt; UNDEFINED
+    '\xae'     #  0xA9 -&gt; REGISTERED SIGN
+    '\xac'     #  0xAA -&gt; NOT SIGN
+    '\xbd'     #  0xAB -&gt; VULGAR FRACTION ONE HALF
+    '\xbc'     #  0xAC -&gt; VULGAR FRACTION ONE QUARTER
+    '\ufffe'   #  0xAD -&gt; UNDEFINED
+    '\xab'     #  0xAE -&gt; LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+    '\xbb'     #  0xAF -&gt; RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+    '\u2591'   #  0xB0 -&gt; LIGHT SHADE
+    '\u2592'   #  0xB1 -&gt; MEDIUM SHADE
+    '\u2593'   #  0xB2 -&gt; DARK SHADE
+    '\u2502'   #  0xB3 -&gt; BOX DRAWINGS LIGHT VERTICAL
+    '\u2524'   #  0xB4 -&gt; BOX DRAWINGS LIGHT VERTICAL AND LEFT
+    '\ufffe'   #  0xB5 -&gt; UNDEFINED
+    '\ufffe'   #  0xB6 -&gt; UNDEFINED
+    '\ufffe'   #  0xB7 -&gt; UNDEFINED
+    '\xa9'     #  0xB8 -&gt; COPYRIGHT SIGN
+    '\u2563'   #  0xB9 -&gt; BOX DRAWINGS DOUBLE VERTICAL AND LEFT
+    '\u2551'   #  0xBA -&gt; BOX DRAWINGS DOUBLE VERTICAL
+    '\u2557'   #  0xBB -&gt; BOX DRAWINGS DOUBLE DOWN AND LEFT
+    '\u255d'   #  0xBC -&gt; BOX DRAWINGS DOUBLE UP AND LEFT
+    '\xa2'     #  0xBD -&gt; CENT SIGN
+    '\xa5'     #  0xBE -&gt; YEN SIGN
+    '\u2510'   #  0xBF -&gt; BOX DRAWINGS LIGHT DOWN AND LEFT
+    '\u2514'   #  0xC0 -&gt; BOX DRAWINGS LIGHT UP AND RIGHT
+    '\u2534'   #  0xC1 -&gt; BOX DRAWINGS LIGHT UP AND HORIZONTAL
+    '\u252c'   #  0xC2 -&gt; BOX DRAWINGS LIGHT DOWN AND HORIZONTAL
+    '\u251c'   #  0xC3 -&gt; BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+    '\u2500'   #  0xC4 -&gt; BOX DRAWINGS LIGHT HORIZONTAL
+    '\u253c'   #  0xC5 -&gt; BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL
+    '\ufffe'   #  0xC6 -&gt; UNDEFINED
+    '\ufffe'   #  0xC7 -&gt; UNDEFINED
+    '\u255a'   #  0xC8 -&gt; BOX DRAWINGS DOUBLE UP AND RIGHT
+    '\u2554'   #  0xC9 -&gt; BOX DRAWINGS DOUBLE DOWN AND RIGHT
+    '\u2569'   #  0xCA -&gt; BOX DRAWINGS DOUBLE UP AND HORIZONTAL
+    '\u2566'   #  0xCB -&gt; BOX DRAWINGS DOUBLE DOWN AND HORIZONTAL
+    '\u2560'   #  0xCC -&gt; BOX DRAWINGS DOUBLE VERTICAL AND RIGHT
+    '\u2550'   #  0xCD -&gt; BOX DRAWINGS DOUBLE HORIZONTAL
+    '\u256c'   #  0xCE -&gt; BOX DRAWINGS DOUBLE VERTICAL AND HORIZONTAL
+    '\xa4'     #  0xCF -&gt; CURRENCY SIGN
+    '\ufffe'   #  0xD0 -&gt; UNDEFINED
+    '\ufffe'   #  0xD1 -&gt; UNDEFINED
+    '\ufffe'   #  0xD2 -&gt; UNDEFINED
+    '\ufffe'   #  0xD3 -&gt; UNDEFINEDS
+    '\ufffe'   #  0xD4 -&gt; UNDEFINED
+    '\ufffe'   #  0xD5 -&gt; UNDEFINED
+    '\ufffe'   #  0xD6 -&gt; UNDEFINEDE
+    '\ufffe'   #  0xD7 -&gt; UNDEFINED
+    '\ufffe'   #  0xD8 -&gt; UNDEFINED
+    '\u2518'   #  0xD9 -&gt; BOX DRAWINGS LIGHT UP AND LEFT
+    '\u250c'   #  0xDA -&gt; BOX DRAWINGS LIGHT DOWN AND RIGHT
+    '\u2588'   #  0xDB -&gt; FULL BLOCK
+    '\u2584'   #  0xDC -&gt; LOWER HALF BLOCK
+    '\xa6'     #  0xDD -&gt; BROKEN BAR
+    '\ufffe'   #  0xDE -&gt; UNDEFINED
+    '\u2580'   #  0xDF -&gt; UPPER HALF BLOCK
+    '\ufffe'   #  0xE0 -&gt; UNDEFINED
+    '\ufffe'   #  0xE1 -&gt; UNDEFINED
+    '\ufffe'   #  0xE2 -&gt; UNDEFINED
+    '\ufffe'   #  0xE3 -&gt; UNDEFINED
+    '\ufffe'   #  0xE4 -&gt; UNDEFINED
+    '\ufffe'   #  0xE5 -&gt; UNDEFINED
+    '\xb5'     #  0xE6 -&gt; MICRO SIGN
+    '\ufffe'   #  0xE7 -&gt; UNDEFINED
+    '\ufffe'   #  0xE8 -&gt; UNDEFINED
+    '\ufffe'   #  0xE9 -&gt; UNDEFINED
+    '\ufffe'   #  0xEA -&gt; UNDEFINED
+    '\ufffe'   #  0xEB -&gt; UNDEFINED
+    '\ufffe'   #  0xEC -&gt; UNDEFINED
+    '\ufffe'   #  0xED -&gt; UNDEFINED
+    '\xaf'     #  0xEE -&gt; MACRON
+    '\xb4'     #  0xEF -&gt; ACUTE ACCENT
+    '\xad'     #  0xF0 -&gt; SOFT HYPHEN
+    '\xb1'     #  0xF1 -&gt; PLUS-MINUS SIGN
+    '\u2017'   #  0xF2 -&gt; DOUBLE LOW LINE
+    '\xbe'     #  0xF3 -&gt; VULGAR FRACTION THREE QUARTERS
+    '\xb6'     #  0xF4 -&gt; PILCROW SIGN
+    '\xa7'     #  0xF5 -&gt; SECTION SIGN
+    '\xf7'     #  0xF6 -&gt; DIVISION SIGN
+    '\xb8'     #  0xF7 -&gt; CEDILLA
+    '\xb0'     #  0xF8 -&gt; DEGREE SIGN
+    '\xa8'     #  0xF9 -&gt; DIAERESIS
+    '\xb7'     #  0xFA -&gt; MIDDLE DOT
+    '\xb9'     #  0xFB -&gt; SUPERSCRIPT ONE
+    '\xb3'     #  0xFC -&gt; SUPERSCRIPT THREE
+    '\xb2'     #  0xFD -&gt; SUPERSCRIPT TWO
+    '\u25a0'   #  0xFE -&gt; BLACK SQUARE
+    '\xa0'     #  0xFF -&gt; NO-BREAK SPACE
+)
+
+### Encoding table
+encoding_table=codecs.charmap_build(decoding_table)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

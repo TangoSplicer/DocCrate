@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>runners.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">__all__ = ('Runner', 'run')
+
+import contextvars
+import enum
+import functools
+import threading
+import signal
+import sys
+from . import coroutines
+from . import events
+from . import exceptions
+from . import tasks
+
+
+class _State(enum.Enum):
+    CREATED = &quot;created&quot;
+    INITIALIZED = &quot;initialized&quot;
+    CLOSED = &quot;closed&quot;
+
+
+class Runner:
+    &quot;&quot;&quot;A context manager that controls event loop life cycle.
+
+    The context manager always creates a new event loop,
+    allows to run async functions inside it,
+    and properly finalizes the loop at the context manager exit.
+
+    If debug is True, the event loop will be run in debug mode.
+    If loop_factory is passed, it is used for new event loop creation.
+
+    asyncio.run(main(), debug=True)
+
+    is a shortcut for
+
+    with asyncio.Runner(debug=True) as runner:
+        runner.run(main())
+
+    The run() method can be called multiple times within the runner's context.
+
+    This can be useful for interactive console (e.g. IPython),
+    unittest runners, console tools, -- everywhere when async code
+    is called from existing sync framework and where the preferred single
+    asyncio.run() call doesn't work.
+
+    &quot;&quot;&quot;
+
+    # Note: the class is final, it is not intended for inheritance.
+
+    def __init__(self, *, debug=None, loop_factory=None):
+        self._state = _State.CREATED
+        self._debug = debug
+        self._loop_factory = loop_factory
+        self._loop = None
+        self._context = None
+        self._interrupt_count = 0
+        self._set_event_loop = False
+
+    def __enter__(self):
+        self._lazy_init()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        &quot;&quot;&quot;Shutdown and close event loop.&quot;&quot;&quot;
+        if self._state is not _State.INITIALIZED:
+            return
+        try:
+            loop = self._loop
+            _cancel_all_tasks(loop)
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.run_until_complete(loop.shutdown_default_executor())
+        finally:
+            if self._set_event_loop:
+                events.set_event_loop(None)
+            loop.close()
+            self._loop = None
+            self._state = _State.CLOSED
+
+    def get_loop(self):
+        &quot;&quot;&quot;Return embedded event loop.&quot;&quot;&quot;
+        self._lazy_init()
+        return self._loop
+
+    def run(self, coro, *, context=None):
+        &quot;&quot;&quot;Run a coroutine inside the embedded event loop.&quot;&quot;&quot;
+        if not coroutines.iscoroutine(coro):
+            raise ValueError(&quot;a coroutine was expected, got {!r}&quot;.format(coro))
+
+        if events._get_running_loop() is not None:
+            # fail fast with short traceback
+            raise RuntimeError(
+                &quot;Runner.run() cannot be called from a running event loop&quot;)
+
+        self._lazy_init()
+
+        if context is None:
+            context = self._context
+        task = self._loop.create_task(coro, context=context)
+
+        if (threading.current_thread() is threading.main_thread()
+            and signal.getsignal(signal.SIGINT) is signal.default_int_handler
+        ):
+            sigint_handler = functools.partial(self._on_sigint, main_task=task)
+            try:
+                signal.signal(signal.SIGINT, sigint_handler)
+            except ValueError:
+                # `signal.signal` may throw if `threading.main_thread` does
+                # not support signals (e.g. embedded interpreter with signals
+                # not registered - see gh-91880)
+                sigint_handler = None
+        else:
+            sigint_handler = None
+
+        self._interrupt_count = 0
+        try:
+            return self._loop.run_until_complete(task)
+        except exceptions.CancelledError:
+            if self._interrupt_count &gt; 0:
+                uncancel = getattr(task, &quot;uncancel&quot;, None)
+                if uncancel is not None and uncancel() == 0:
+                    raise KeyboardInterrupt()
+            raise  # CancelledError
+        finally:
+            if (sigint_handler is not None
+                and signal.getsignal(signal.SIGINT) is sigint_handler
+            ):
+                signal.signal(signal.SIGINT, signal.default_int_handler)
+
+    def _lazy_init(self):
+        if self._state is _State.CLOSED:
+            raise RuntimeError(&quot;Runner is closed&quot;)
+        if self._state is _State.INITIALIZED:
+            return
+        if self._loop_factory is None:
+            self._loop = events.new_event_loop()
+            if not self._set_event_loop:
+                # Call set_event_loop only once to avoid calling
+                # attach_loop multiple times on child watchers
+                events.set_event_loop(self._loop)
+                self._set_event_loop = True
+        else:
+            self._loop = self._loop_factory()
+        if self._debug is not None:
+            self._loop.set_debug(self._debug)
+        self._context = contextvars.copy_context()
+        self._state = _State.INITIALIZED
+
+    def _on_sigint(self, signum, frame, main_task):
+        self._interrupt_count += 1
+        if self._interrupt_count == 1 and not main_task.done():
+            main_task.cancel()
+            # wakeup loop if it is blocked by select() with long timeout
+            self._loop.call_soon_threadsafe(lambda: None)
+            return
+        raise KeyboardInterrupt()
+
+
+def run(main, *, debug=None):
+    &quot;&quot;&quot;Execute the coroutine and return the result.
+
+    This function runs the passed coroutine, taking care of
+    managing the asyncio event loop and finalizing asynchronous
+    generators.
+
+    This function cannot be called when another asyncio event loop is
+    running in the same thread.
+
+    If debug is True, the event loop will be run in debug mode.
+
+    This function always creates a new event loop and closes it at the end.
+    It should be used as a main entry point for asyncio programs, and should
+    ideally only be called once.
+
+    Example:
+
+        async def main():
+            await asyncio.sleep(1)
+            print('hello')
+
+        asyncio.run(main())
+    &quot;&quot;&quot;
+    if events._get_running_loop() is not None:
+        # fail fast with short traceback
+        raise RuntimeError(
+            &quot;asyncio.run() cannot be called from a running event loop&quot;)
+
+    with Runner(debug=debug) as runner:
+        return runner.run(main)
+
+
+def _cancel_all_tasks(loop):
+    to_cancel = tasks.all_tasks(loop)
+    if not to_cancel:
+        return
+
+    for task in to_cancel:
+        task.cancel()
+
+    loop.run_until_complete(tasks.gather(*to_cancel, return_exceptions=True))
+
+    for task in to_cancel:
+        if task.cancelled():
+            continue
+        if task.exception() is not None:
+            loop.call_exception_handler({
+                'message': 'unhandled exception during asyncio.run() shutdown',
+                'exception': task.exception(),
+                'task': task,
+            })
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

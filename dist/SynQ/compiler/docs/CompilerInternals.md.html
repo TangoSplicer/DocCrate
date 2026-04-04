@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CompilerInternals.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <p>// MIT License
+// 
+// Copyright (c) 2025 SynQ Contributors
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the &quot;Software&quot;), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+✅ File: synq/docs/CompilerInternals.md</p>
+<h1>SynQ Compiler Internals</h1>
+<h2>Overview</h2>
+<p>The SynQ compiler is designed as a hybrid, pluggable, and introspectable quantum-classical-AI compilation engine. It supports high-level SynQ source code, transforming it into quantum circuits, classical bytecode, plugin-enhanced operations, and AI-augmented pipelines.</p>
+<hr />
+<h2>1. Compilation Pipeline Overview</h2>
+<p>Source Code (.synq) ↓ Lexer &amp; Parser (ANTLR) ↓ AST Construction ↓ Type Checking &amp; Inference ↓ Pass Manager (Classical + Quantum + AI) ↓ IR Generation (Hybrid) ↓ Backends (Circuit, Binary, LLVM, Plugins)</p>
+<hr />
+<h2>2. Lexer &amp; Parser</h2>
+<ul>
+<li>Built using <strong>ANTLR4</strong>, with an extended grammar supporting:
+<ul>
+<li>Quantum constructs (<code>Qubit</code>, <code>Measure</code>, etc.)</li>
+<li>AI calls (<code>model</code>, <code>run</code>, etc.)</li>
+<li>Plugin expressions</li>
+</ul>
+</li>
+<li>Output: <code>ASTNode</code> graph</li>
+</ul>
+<hr />
+<h2>3. AST (Abstract Syntax Tree)</h2>
+<p>Central node types:</p>
+<ul>
+<li><code>ASTFunction</code>, <code>ASTCircuit</code>, <code>ASTModel</code>, <code>ASTPluginCall</code>, <code>ASTQubit</code>, etc.</li>
+</ul>
+<p>Each node tracks:</p>
+<ul>
+<li>Type signature</li>
+<li>Parent scope</li>
+<li>Inferred behaviors</li>
+<li>Line number and context</li>
+</ul>
+<hr />
+<h2>4. Type System</h2>
+<p>Hybrid static+dynamic system:</p>
+<ul>
+<li>Classical types: <code>int</code>, <code>float</code>, <code>str</code>, <code>bool</code>, <code>list</code>, <code>dict</code>, etc.</li>
+<li>Quantum types: <code>Qubit</code>, <code>QRegister</code>, <code>QTensor</code></li>
+<li>AI types: <code>Prompt</code>, <code>Response</code>, <code>ModelOutput</code></li>
+</ul>
+<p>Supports:</p>
+<ul>
+<li>Type inference</li>
+<li>Operator overloading</li>
+<li>Hybrid type conversion</li>
+</ul>
+<hr />
+<h2>5. Intermediate Representation (IR)</h2>
+<p>SynQ uses a <strong>hybrid IR</strong>:</p>
+<ul>
+<li><strong>Classical IR</strong>: Similar to bytecode</li>
+<li><strong>Quantum IR</strong>: Gate-labeled, DAG-formatted</li>
+<li><strong>AI IR</strong>: Prompt-tree sequences and cost annotations</li>
+</ul>
+<p>This hybrid IR feeds into multiple backends.</p>
+<hr />
+<h2>6. Optimization Passes</h2>
+<p>Managed via a central <code>PassManager</code>:</p>
+<ul>
+<li>Constant folding</li>
+<li>Gate merging</li>
+<li>Redundant measurement pruning</li>
+<li>AI path scoring</li>
+<li>Dead code + plugin branch elimination</li>
+</ul>
+<hr />
+<h2>7. Backends</h2>
+<p>| Backend       | Output                          |
+|---------------|---------------------------------|
+| <code>qasm_backend</code>| OpenQASM 3.0                    |
+| <code>llvm_backend</code>| LLVM IR for classical code      |
+| <code>json_backend</code>| Hybrid job JSON (for SynQHub)   |
+| <code>ai_backend</code>  | Token trace + cost estimator    |
+| <code>plugin_backend</code>| Routed plugin calls            |</p>
+<p>Backends can be mixed per function block.</p>
+<hr />
+<h2>8. Plugin Engine Integration</h2>
+<p>Plugins can inject:</p>
+<ul>
+<li>New nodes into AST</li>
+<li>Intermediate passes into IR</li>
+<li>Finalizers into backends</li>
+</ul>
+<p>Safeguarded by:</p>
+<ul>
+<li><code>plugin_policy.cpp</code></li>
+<li><code>sandbox_violation.h</code></li>
+<li><code>refactor_planner.h</code> (for plugin-guided mutation)</li>
+</ul>
+<hr />
+<h2>9. AI in the Compiler</h2>
+<p>The AI layer supports:</p>
+<ul>
+<li>Prompt generation from code context</li>
+<li>Embedding similarity lookups</li>
+<li>Code transformation proposals</li>
+<li>Language-model-driven optimizations</li>
+</ul>
+<p>AI tools live in <code>compiler/ai/ai_toolkit.{cpp,h}</code></p>
+<hr />
+<h2>10. Visual Compiler Trace</h2>
+<p>Enabled via:</p>
+<pre><code class="language-bash">synq --trace
+
+Displays:
+
+AST walk diagram
+
+Pass timing
+
+IR diffs
+
+Final output tree
+
+
+Optionally renders to:
+
+.svg, .json, .html
+
+
+
+---
+
+11. Multi-Pass Mode
+
+Enable deep recursion through:
+
+synq --multi-pass
+
+Used for:
+
+Layered plugin injection
+
+Classical control inside quantum loops
+
+Quantum-AI model interaction inside circuits
+
+
+
+---
+
+12. Future Compiler Features
+
+WASM output for embedded interpreters
+
+Live-edit + hot-reload of compiled circuits
+
+Type-theory guided optimizers
+
+Self-evolving compiler using plugin scoring and AI mutation
+
+
+
+---
+
+Resources
+
+Compiler source: src/compiler/
+
+Plugins: src/compiler/sandbox/, src/compiler/optimize/
+
+IR schemas: docs/CodegenTargets.md, docs/Quantum_Features.md
+
+
+
+---
+
+© 2025 SynQ Project — Compiler of the Future: Hybrid, Extensible, Aware.
+
+---
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

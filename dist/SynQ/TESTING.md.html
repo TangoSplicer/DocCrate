@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESTING.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <h1>SynQ Testing Strategy &amp; Coverage</h1>
+<h2>Overview</h2>
+<p>The SynQ project implements a comprehensive testing strategy across all components: compiler, backend, frontend, and IDE. This document outlines the testing framework, coverage goals, and best practices.</p>
+<h2>Testing Architecture</h2>
+<h3>Test Pyramid</h3>
+<pre><code>        /\
+       /  \        E2E Tests (5%)
+      /----\       Integration Tests (15%)
+     /      \      Unit Tests (80%)
+    /--------\
+</code></pre>
+<p><strong>Distribution:</strong></p>
+<ul>
+<li><strong>Unit Tests (80%)</strong>: Fast, isolated, focused on individual components</li>
+<li><strong>Integration Tests (15%)</strong>: Test component interactions and workflows</li>
+<li><strong>E2E Tests (5%)</strong>: Full system testing from user perspective</li>
+</ul>
+<h2>Component Testing</h2>
+<h3>Compiler Testing</h3>
+<p><strong>Location:</strong> <code>compiler/tests/</code></p>
+<p><strong>Test Categories:</strong></p>
+<ol>
+<li>
+<p><strong>Unit Tests</strong> (<code>compiler/tests/unit/</code>)</p>
+<ul>
+<li>Lexer/tokenizer tests</li>
+<li>Parser tests</li>
+<li>Type checker tests</li>
+<li>Code generator tests</li>
+<li>Optimization tests</li>
+</ul>
+</li>
+<li>
+<p><strong>Integration Tests</strong> (<code>compiler/tests/integration/</code>)</p>
+<ul>
+<li>Multi-file compilation</li>
+<li>Cross-module dependencies</li>
+<li>Linking and export</li>
+<li>Plugin integration</li>
+</ul>
+</li>
+<li>
+<p><strong>Security Tests</strong> (<code>compiler/tests/security/</code>)</p>
+<ul>
+<li>Memory safety validation</li>
+<li>Type safety checks</li>
+<li>Vulnerability scanning</li>
+<li>Cryptographic tests</li>
+</ul>
+</li>
+<li>
+<p><strong>Simulation Tests</strong> (<code>compiler/tests/simulation/</code>)</p>
+<ul>
+<li>Quantum circuit simulation</li>
+<li>State vector validation</li>
+<li>Measurement results</li>
+<li>Algorithm verification</li>
+</ul>
+</li>
+<li>
+<p><strong>AI Tests</strong> (<code>compiler/tests/ai/</code>)</p>
+<ul>
+<li>ML model inference</li>
+<li>Neural network operations</li>
+<li>Training validation</li>
+<li>Optimization algorithms</li>
+</ul>
+</li>
+</ol>
+<p><strong>Running Compiler Tests:</strong></p>
+<pre><code class="language-bash">cd compiler/build
+ctest --verbose                    # All tests
+ctest -R &quot;unit&quot;                   # Unit tests only
+ctest -R &quot;security&quot;               # Security tests only
+ctest --output-on-failure         # Show failures
+</code></pre>
+<h3>Backend Testing</h3>
+<p><strong>Location:</strong> <code>backend/app/tests/</code></p>
+<p><strong>Test Categories:</strong></p>
+<ol>
+<li>
+<p><strong>Unit Tests</strong></p>
+<ul>
+<li>API endpoint tests</li>
+<li>Service layer tests</li>
+<li>Data model tests</li>
+<li>Utility function tests</li>
+</ul>
+</li>
+<li>
+<p><strong>Integration Tests</strong></p>
+<ul>
+<li>Database integration</li>
+<li>Redis caching</li>
+<li>API workflows</li>
+<li>Authentication flows</li>
+</ul>
+</li>
+<li>
+<p><strong>API Contract Tests</strong></p>
+<ul>
+<li>Request/response validation</li>
+<li>Error handling</li>
+<li>Status codes</li>
+<li>Content types</li>
+</ul>
+</li>
+<li>
+<p><strong>Performance Tests</strong></p>
+<ul>
+<li>Response time validation</li>
+<li>Throughput testing</li>
+<li>Memory usage</li>
+<li>Database query optimization</li>
+</ul>
+</li>
+</ol>
+<p><strong>Running Backend Tests:</strong></p>
+<pre><code class="language-bash">cd backend
+
+# All tests
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=src --cov-report=html
+
+# Specific test file
+pytest tests/test_phase9.py -v
+
+# Specific test class
+pytest tests/test_phase9.py::TestQuantumAPI -v
+</code></pre>
+<h3>Frontend Testing</h3>
+<p><strong>Location:</strong> <code>frontend/src/__tests__/</code></p>
+<p><strong>Test Categories:</strong></p>
+<ol>
+<li>
+<p><strong>Unit Tests</strong></p>
+<ul>
+<li>Component rendering</li>
+<li>Props validation</li>
+<li>State management</li>
+<li>Event handlers</li>
+</ul>
+</li>
+<li>
+<p><strong>Integration Tests</strong></p>
+<ul>
+<li>Component interactions</li>
+<li>API integration</li>
+<li>Navigation flows</li>
+<li>Form submission</li>
+</ul>
+</li>
+<li>
+<p><strong>Visual Tests</strong></p>
+<ul>
+<li>Snapshot tests</li>
+<li>CSS validation</li>
+<li>Responsive design</li>
+<li>Accessibility</li>
+</ul>
+</li>
+</ol>
+<p><strong>Running Frontend Tests:</strong></p>
+<pre><code class="language-bash">cd frontend
+
+# All tests
+npm run test
+
+# With coverage
+npm run test -- --coverage
+
+# Watch mode
+npm run test -- --watch
+
+# Specific test file
+npm run test -- QuantumCircuit.test.tsx
+</code></pre>
+<h2>Test Coverage Goals</h2>
+<p>| Component | Target | Current | Status |
+|-----------|--------|---------|--------|
+| <strong>Compiler</strong> | 85% | 82% | ✅ On track |
+| <strong>Backend</strong> | 80% | 78% | ✅ On track |
+| <strong>Frontend</strong> | 75% | 72% | ✅ On track |
+| <strong>Overall</strong> | 80% | 77% | ✅ On track |</p>
+<h2>Continuous Integration</h2>
+<h3>GitHub Actions Workflows</h3>
+<p><strong>Compiler CI</strong> (<code>.github/workflows/compiler-ci.yml</code>)</p>
+<ul>
+<li>Runs on: Push to main/develop, Pull requests</li>
+<li>Tests: Unit, integration, security</li>
+<li>Coverage: Reports to Codecov</li>
+<li>Artifacts: Test results, coverage reports</li>
+</ul>
+<p><strong>Backend CI</strong> (<code>.github/workflows/backend-ci.yml</code>)</p>
+<ul>
+<li>Runs on: Push to main/develop, Pull requests</li>
+<li>Tests: Unit, integration, API contract</li>
+<li>Coverage: Reports to Codecov</li>
+<li>Artifacts: Test results, coverage reports</li>
+</ul>
+<h3>Pre-commit Hooks</h3>
+<p>Set up pre-commit hooks to run tests locally before committing:</p>
+<pre><code class="language-bash"># Install pre-commit
+pip install pre-commit
+
+# Set up hooks
+pre-commit install
+
+# Run hooks manually
+pre-commit run --all-files
+</code></pre>
+<h2>Testing Best Practices</h2>
+<h3>1. Test Naming</h3>
+<p>Use descriptive names that explain what is being tested:</p>
+<pre><code class="language-python"># ✅ Good
+def test_quantum_circuit_adds_hadamard_gate_correctly():
+    pass
+
+# ❌ Bad
+def test_circuit():
+    pass
+</code></pre>
+<h3>2. Arrange-Act-Assert Pattern</h3>
+<pre><code class="language-python">def test_add_gate():
+    # Arrange
+    circuit = QuantumCircuit(2)
+    
+    # Act
+    circuit.add_gate(&quot;h&quot;, [0])
+    
+    # Assert
+    assert circuit.gate_count == 1
+</code></pre>
+<h3>3. Test Isolation</h3>
+<p>Each test should be independent and not rely on other tests:</p>
+<pre><code class="language-python"># ✅ Good - Each test sets up its own state
+def test_add_gate():
+    circuit = QuantumCircuit(2)
+    circuit.add_gate(&quot;h&quot;, [0])
+    assert circuit.gate_count == 1
+
+def test_measure_gate():
+    circuit = QuantumCircuit(2)
+    circuit.add_gate(&quot;measure&quot;, [0])
+    assert circuit.gate_count == 1
+
+# ❌ Bad - Test depends on previous test
+circuit = QuantumCircuit(2)
+
+def test_add_gate():
+    circuit.add_gate(&quot;h&quot;, [0])
+    assert circuit.gate_count == 1
+
+def test_measure_gate():
+    circuit.add_gate(&quot;measure&quot;, [0])
+    assert circuit.gate_count == 2  # Depends on previous test
+</code></pre>
+<h3>4. Test Data</h3>
+<p>Use fixtures for common test data:</p>
+<pre><code class="language-python">import pytest
+
+@pytest.fixture
+def quantum_circuit():
+    return QuantumCircuit(2)
+
+def test_add_gate(quantum_circuit):
+    quantum_circuit.add_gate(&quot;h&quot;, [0])
+    assert quantum_circuit.gate_count == 1
+</code></pre>
+<h3>5. Mocking External Dependencies</h3>
+<p>Mock external services to isolate tests:</p>
+<pre><code class="language-python">from unittest.mock import patch, MagicMock
+
+@patch('requests.get')
+def test_api_call(mock_get):
+    mock_get.return_value.json.return_value = {&quot;result&quot;: &quot;success&quot;}
+    
+    result = call_external_api()
+    
+    assert result == {&quot;result&quot;: &quot;success&quot;}
+    mock_get.assert_called_once()
+</code></pre>
+<h2>Performance Testing</h2>
+<h3>Load Testing</h3>
+<p>Use k6 for load testing:</p>
+<pre><code class="language-bash"># Run load test
+k6 run load-test.js
+
+# With custom parameters
+k6 run -e USERS=100 -e DURATION=5m load-test.js
+</code></pre>
+<h3>Profiling</h3>
+<p>Profile code to identify performance bottlenecks:</p>
+<pre><code class="language-bash"># Python profiling
+python -m cProfile -s cumulative backend/main.py
+
+# C++ profiling
+perf record -g ./compiler/build/synq
+perf report
+</code></pre>
+<h2>Test Maintenance</h2>
+<h3>Updating Tests</h3>
+<p>When code changes, update corresponding tests:</p>
+<ol>
+<li>Identify affected tests</li>
+<li>Update test expectations</li>
+<li>Add new tests for new functionality</li>
+<li>Ensure all tests pass</li>
+</ol>
+<h3>Removing Tests</h3>
+<p>Only remove tests when:</p>
+<ul>
+<li>Feature is removed</li>
+<li>Test is duplicate</li>
+<li>Test is no longer relevant</li>
+</ul>
+<p>Document why tests are removed in commit message.</p>
+<h2>Coverage Reports</h2>
+<h3>Generating Coverage Reports</h3>
+<pre><code class="language-bash"># Backend
+cd backend
+pytest --cov=src --cov-report=html
+open htmlcov/index.html
+
+# Frontend
+cd frontend
+npm run test -- --coverage
+open coverage/lcov-report/index.html
+
+# Compiler
+cd compiler/build
+cmake .. -DENABLE_COVERAGE=ON
+make coverage
+open coverage/index.html
+</code></pre>
+<h3>Interpreting Coverage</h3>
+<ul>
+<li><strong>Line Coverage</strong>: Percentage of lines executed</li>
+<li><strong>Branch Coverage</strong>: Percentage of conditional branches tested</li>
+<li><strong>Function Coverage</strong>: Percentage of functions called</li>
+</ul>
+<p><strong>Coverage Goals:</strong></p>
+<ul>
+<li>Critical code: 90%+</li>
+<li>Important code: 80%+</li>
+<li>General code: 70%+</li>
+</ul>
+<h2>Troubleshooting</h2>
+<h3>Common Issues</h3>
+<p><strong>Tests fail locally but pass in CI:</strong></p>
+<ul>
+<li>Check environment variables</li>
+<li>Verify database state</li>
+<li>Check file permissions</li>
+<li>Review test isolation</li>
+</ul>
+<p><strong>Flaky tests:</strong></p>
+<ul>
+<li>Add proper waits/timeouts</li>
+<li>Mock time-dependent operations</li>
+<li>Use proper test fixtures</li>
+<li>Check for race conditions</li>
+</ul>
+<p><strong>Slow tests:</strong></p>
+<ul>
+<li>Profile to identify bottlenecks</li>
+<li>Use mocks instead of real services</li>
+<li>Parallelize test execution</li>
+<li>Optimize database queries</li>
+</ul>
+<h2>Resources</h2>
+<ul>
+<li><a href="https://docs.pytest.org/">pytest Documentation</a></li>
+<li><a href="https://jestjs.io/">Jest Documentation</a></li>
+<li><a href="https://github.com/google/googletest">Google Test Documentation</a></li>
+<li><a href="https://k6.io/">k6 Load Testing</a></li>
+</ul>
+<hr />
+<p><strong>Last Updated:</strong> March 2026
+<strong>Maintained By:</strong> SynQ Development Team</p>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

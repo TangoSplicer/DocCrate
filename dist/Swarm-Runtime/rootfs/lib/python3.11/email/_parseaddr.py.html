@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>_parseaddr.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py"># Copyright (C) 2002-2007 Python Software Foundation
+# Contact: email-sig@python.org
+
+&quot;&quot;&quot;Email address parsing code.
+
+Lifted directly from rfc822.py.  This should eventually be rewritten.
+&quot;&quot;&quot;
+
+__all__ = [
+    'mktime_tz',
+    'parsedate',
+    'parsedate_tz',
+    'quote',
+    ]
+
+import time, calendar
+
+SPACE = ' '
+EMPTYSTRING = ''
+COMMASPACE = ', '
+
+# Parse a date field
+_monthnames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul',
+               'aug', 'sep', 'oct', 'nov', 'dec',
+               'january', 'february', 'march', 'april', 'may', 'june', 'july',
+               'august', 'september', 'october', 'november', 'december']
+
+_daynames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+# The timezone table does not include the military time zones defined
+# in RFC822, other than Z.  According to RFC1123, the description in
+# RFC822 gets the signs wrong, so we can't rely on any such time
+# zones.  RFC1123 recommends that numeric timezone indicators be used
+# instead of timezone names.
+
+_timezones = {'UT':0, 'UTC':0, 'GMT':0, 'Z':0,
+              'AST': -400, 'ADT': -300,  # Atlantic (used in Canada)
+              'EST': -500, 'EDT': -400,  # Eastern
+              'CST': -600, 'CDT': -500,  # Central
+              'MST': -700, 'MDT': -600,  # Mountain
+              'PST': -800, 'PDT': -700   # Pacific
+              }
+
+
+def parsedate_tz(data):
+    &quot;&quot;&quot;Convert a date string to a time tuple.
+
+    Accounts for military timezones.
+    &quot;&quot;&quot;
+    res = _parsedate_tz(data)
+    if not res:
+        return
+    if res[9] is None:
+        res[9] = 0
+    return tuple(res)
+
+def _parsedate_tz(data):
+    &quot;&quot;&quot;Convert date to extended time tuple.
+
+    The last (additional) element is the time zone offset in seconds, except if
+    the timezone was specified as -0000.  In that case the last element is
+    None.  This indicates a UTC timestamp that explicitly declaims knowledge of
+    the source timezone, as opposed to a +0000 timestamp that indicates the
+    source timezone really was UTC.
+
+    &quot;&quot;&quot;
+    if not data:
+        return None
+    data = data.split()
+    if not data:  # This happens for whitespace-only input.
+        return None
+    # The FWS after the comma after the day-of-week is optional, so search and
+    # adjust for this.
+    if data[0].endswith(',') or data[0].lower() in _daynames:
+        # There's a dayname here. Skip it
+        del data[0]
+    else:
+        i = data[0].rfind(',')
+        if i &gt;= 0:
+            data[0] = data[0][i+1:]
+    if len(data) == 3: # RFC 850 date, deprecated
+        stuff = data[0].split('-')
+        if len(stuff) == 3:
+            data = stuff + data[1:]
+    if len(data) == 4:
+        s = data[3]
+        i = s.find('+')
+        if i == -1:
+            i = s.find('-')
+        if i &gt; 0:
+            data[3:] = [s[:i], s[i:]]
+        else:
+            data.append('') # Dummy tz
+    if len(data) &lt; 5:
+        return None
+    data = data[:5]
+    [dd, mm, yy, tm, tz] = data
+    if not (dd and mm and yy):
+        return None
+    mm = mm.lower()
+    if mm not in _monthnames:
+        dd, mm = mm, dd.lower()
+        if mm not in _monthnames:
+            return None
+    mm = _monthnames.index(mm) + 1
+    if mm &gt; 12:
+        mm -= 12
+    if dd[-1] == ',':
+        dd = dd[:-1]
+    i = yy.find(':')
+    if i &gt; 0:
+        yy, tm = tm, yy
+    if yy[-1] == ',':
+        yy = yy[:-1]
+        if not yy:
+            return None
+    if not yy[0].isdigit():
+        yy, tz = tz, yy
+    if tm[-1] == ',':
+        tm = tm[:-1]
+    tm = tm.split(':')
+    if len(tm) == 2:
+        [thh, tmm] = tm
+        tss = '0'
+    elif len(tm) == 3:
+        [thh, tmm, tss] = tm
+    elif len(tm) == 1 and '.' in tm[0]:
+        # Some non-compliant MUAs use '.' to separate time elements.
+        tm = tm[0].split('.')
+        if len(tm) == 2:
+            [thh, tmm] = tm
+            tss = 0
+        elif len(tm) == 3:
+            [thh, tmm, tss] = tm
+        else:
+            return None
+    else:
+        return None
+    try:
+        yy = int(yy)
+        dd = int(dd)
+        thh = int(thh)
+        tmm = int(tmm)
+        tss = int(tss)
+    except ValueError:
+        return None
+    # Check for a yy specified in two-digit format, then convert it to the
+    # appropriate four-digit format, according to the POSIX standard. RFC 822
+    # calls for a two-digit yy, but RFC 2822 (which obsoletes RFC 822)
+    # mandates a 4-digit yy. For more information, see the documentation for
+    # the time module.
+    if yy &lt; 100:
+        # The year is between 1969 and 1999 (inclusive).
+        if yy &gt; 68:
+            yy += 1900
+        # The year is between 2000 and 2068 (inclusive).
+        else:
+            yy += 2000
+    tzoffset = None
+    tz = tz.upper()
+    if tz in _timezones:
+        tzoffset = _timezones[tz]
+    else:
+        try:
+            tzoffset = int(tz)
+        except ValueError:
+            pass
+        if tzoffset==0 and tz.startswith('-'):
+            tzoffset = None
+    # Convert a timezone offset into seconds ; -0500 -&gt; -18000
+    if tzoffset:
+        if tzoffset &lt; 0:
+            tzsign = -1
+            tzoffset = -tzoffset
+        else:
+            tzsign = 1
+        tzoffset = tzsign * ( (tzoffset//100)*3600 + (tzoffset % 100)*60)
+    # Daylight Saving Time flag is set to -1, since DST is unknown.
+    return [yy, mm, dd, thh, tmm, tss, 0, 1, -1, tzoffset]
+
+
+def parsedate(data):
+    &quot;&quot;&quot;Convert a time string to a time tuple.&quot;&quot;&quot;
+    t = parsedate_tz(data)
+    if isinstance(t, tuple):
+        return t[:9]
+    else:
+        return t
+
+
+def mktime_tz(data):
+    &quot;&quot;&quot;Turn a 10-tuple as returned by parsedate_tz() into a POSIX timestamp.&quot;&quot;&quot;
+    if data[9] is None:
+        # No zone info, so localtime is better assumption than GMT
+        return time.mktime(data[:8] + (-1,))
+    else:
+        t = calendar.timegm(data)
+        return t - data[9]
+
+
+def quote(str):
+    &quot;&quot;&quot;Prepare string to be used in a quoted string.
+
+    Turns backslash and double quote characters into quoted pairs.  These
+    are the only characters that need to be quoted inside a quoted string.
+    Does not add the surrounding double quotes.
+    &quot;&quot;&quot;
+    return str.replace('\\', '\\\\').replace('&quot;', '\\&quot;')
+
+
+class AddrlistClass:
+    &quot;&quot;&quot;Address parser class by Ben Escoto.
+
+    To understand what this class does, it helps to have a copy of RFC 2822 in
+    front of you.
+
+    Note: this class interface is deprecated and may be removed in the future.
+    Use email.utils.AddressList instead.
+    &quot;&quot;&quot;
+
+    def __init__(self, field):
+        &quot;&quot;&quot;Initialize a new instance.
+
+        `field' is an unparsed address header field, containing
+        one or more addresses.
+        &quot;&quot;&quot;
+        self.specials = '()&lt;&gt;@,:;.\&quot;[]'
+        self.pos = 0
+        self.LWS = ' \t'
+        self.CR = '\r\n'
+        self.FWS = self.LWS + self.CR
+        self.atomends = self.specials + self.LWS + self.CR
+        # Note that RFC 2822 now specifies `.' as obs-phrase, meaning that it
+        # is obsolete syntax.  RFC 2822 requires that we recognize obsolete
+        # syntax, so allow dots in phrases.
+        self.phraseends = self.atomends.replace('.', '')
+        self.field = field
+        self.commentlist = []
+
+    def gotonext(self):
+        &quot;&quot;&quot;Skip white space and extract comments.&quot;&quot;&quot;
+        wslist = []
+        while self.pos &lt; len(self.field):
+            if self.field[self.pos] in self.LWS + '\n\r':
+                if self.field[self.pos] not in '\n\r':
+                    wslist.append(self.field[self.pos])
+                self.pos += 1
+            elif self.field[self.pos] == '(':
+                self.commentlist.append(self.getcomment())
+            else:
+                break
+        return EMPTYSTRING.join(wslist)
+
+    def getaddrlist(self):
+        &quot;&quot;&quot;Parse all addresses.
+
+        Returns a list containing all of the addresses.
+        &quot;&quot;&quot;
+        result = []
+        while self.pos &lt; len(self.field):
+            ad = self.getaddress()
+            if ad:
+                result += ad
+            else:
+                result.append(('', ''))
+        return result
+
+    def getaddress(self):
+        &quot;&quot;&quot;Parse the next address.&quot;&quot;&quot;
+        self.commentlist = []
+        self.gotonext()
+
+        oldpos = self.pos
+        oldcl = self.commentlist
+        plist = self.getphraselist()
+
+        self.gotonext()
+        returnlist = []
+
+        if self.pos &gt;= len(self.field):
+            # Bad email address technically, no domain.
+            if plist:
+                returnlist = [(SPACE.join(self.commentlist), plist[0])]
+
+        elif self.field[self.pos] in '.@':
+            # email address is just an addrspec
+            # this isn't very efficient since we start over
+            self.pos = oldpos
+            self.commentlist = oldcl
+            addrspec = self.getaddrspec()
+            returnlist = [(SPACE.join(self.commentlist), addrspec)]
+
+        elif self.field[self.pos] == ':':
+            # address is a group
+            returnlist = []
+
+            fieldlen = len(self.field)
+            self.pos += 1
+            while self.pos &lt; len(self.field):
+                self.gotonext()
+                if self.pos &lt; fieldlen and self.field[self.pos] == ';':
+                    self.pos += 1
+                    break
+                returnlist = returnlist + self.getaddress()
+
+        elif self.field[self.pos] == '&lt;':
+            # Address is a phrase then a route addr
+            routeaddr = self.getrouteaddr()
+
+            if self.commentlist:
+                returnlist = [(SPACE.join(plist) + ' (' +
+                               ' '.join(self.commentlist) + ')', routeaddr)]
+            else:
+                returnlist = [(SPACE.join(plist), routeaddr)]
+
+        else:
+            if plist:
+                returnlist = [(SPACE.join(self.commentlist), plist[0])]
+            elif self.field[self.pos] in self.specials:
+                self.pos += 1
+
+        self.gotonext()
+        if self.pos &lt; len(self.field) and self.field[self.pos] == ',':
+            self.pos += 1
+        return returnlist
+
+    def getrouteaddr(self):
+        &quot;&quot;&quot;Parse a route address (Return-path value).
+
+        This method just skips all the route stuff and returns the addrspec.
+        &quot;&quot;&quot;
+        if self.field[self.pos] != '&lt;':
+            return
+
+        expectroute = False
+        self.pos += 1
+        self.gotonext()
+        adlist = ''
+        while self.pos &lt; len(self.field):
+            if expectroute:
+                self.getdomain()
+                expectroute = False
+            elif self.field[self.pos] == '&gt;':
+                self.pos += 1
+                break
+            elif self.field[self.pos] == '@':
+                self.pos += 1
+                expectroute = True
+            elif self.field[self.pos] == ':':
+                self.pos += 1
+            else:
+                adlist = self.getaddrspec()
+                self.pos += 1
+                break
+            self.gotonext()
+
+        return adlist
+
+    def getaddrspec(self):
+        &quot;&quot;&quot;Parse an RFC 2822 addr-spec.&quot;&quot;&quot;
+        aslist = []
+
+        self.gotonext()
+        while self.pos &lt; len(self.field):
+            preserve_ws = True
+            if self.field[self.pos] == '.':
+                if aslist and not aslist[-1].strip():
+                    aslist.pop()
+                aslist.append('.')
+                self.pos += 1
+                preserve_ws = False
+            elif self.field[self.pos] == '&quot;':
+                aslist.append('&quot;%s&quot;' % quote(self.getquote()))
+            elif self.field[self.pos] in self.atomends:
+                if aslist and not aslist[-1].strip():
+                    aslist.pop()
+                break
+            else:
+                aslist.append(self.getatom())
+            ws = self.gotonext()
+            if preserve_ws and ws:
+                aslist.append(ws)
+
+        if self.pos &gt;= len(self.field) or self.field[self.pos] != '@':
+            return EMPTYSTRING.join(aslist)
+
+        aslist.append('@')
+        self.pos += 1
+        self.gotonext()
+        domain = self.getdomain()
+        if not domain:
+            # Invalid domain, return an empty address instead of returning a
+            # local part to denote failed parsing.
+            return EMPTYSTRING
+        return EMPTYSTRING.join(aslist) + domain
+
+    def getdomain(self):
+        &quot;&quot;&quot;Get the complete domain name from an address.&quot;&quot;&quot;
+        sdlist = []
+        while self.pos &lt; len(self.field):
+            if self.field[self.pos] in self.LWS:
+                self.pos += 1
+            elif self.field[self.pos] == '(':
+                self.commentlist.append(self.getcomment())
+            elif self.field[self.pos] == '[':
+                sdlist.append(self.getdomainliteral())
+            elif self.field[self.pos] == '.':
+                self.pos += 1
+                sdlist.append('.')
+            elif self.field[self.pos] == '@':
+                # bpo-34155: Don't parse domains with two `@` like
+                # `a@malicious.org@important.com`.
+                return EMPTYSTRING
+            elif self.field[self.pos] in self.atomends:
+                break
+            else:
+                sdlist.append(self.getatom())
+        return EMPTYSTRING.join(sdlist)
+
+    def getdelimited(self, beginchar, endchars, allowcomments=True):
+        &quot;&quot;&quot;Parse a header fragment delimited by special characters.
+
+        `beginchar' is the start character for the fragment.
+        If self is not looking at an instance of `beginchar' then
+        getdelimited returns the empty string.
+
+        `endchars' is a sequence of allowable end-delimiting characters.
+        Parsing stops when one of these is encountered.
+
+        If `allowcomments' is non-zero, embedded RFC 2822 comments are allowed
+        within the parsed fragment.
+        &quot;&quot;&quot;
+        if self.field[self.pos] != beginchar:
+            return ''
+
+        slist = ['']
+        quote = False
+        self.pos += 1
+        while self.pos &lt; len(self.field):
+            if quote:
+                slist.append(self.field[self.pos])
+                quote = False
+            elif self.field[self.pos] in endchars:
+                self.pos += 1
+                break
+            elif allowcomments and self.field[self.pos] == '(':
+                slist.append(self.getcomment())
+                continue        # have already advanced pos from getcomment
+            elif self.field[self.pos] == '\\':
+                quote = True
+            else:
+                slist.append(self.field[self.pos])
+            self.pos += 1
+
+        return EMPTYSTRING.join(slist)
+
+    def getquote(self):
+        &quot;&quot;&quot;Get a quote-delimited fragment from self's field.&quot;&quot;&quot;
+        return self.getdelimited('&quot;', '&quot;\r', False)
+
+    def getcomment(self):
+        &quot;&quot;&quot;Get a parenthesis-delimited fragment from self's field.&quot;&quot;&quot;
+        return self.getdelimited('(', ')\r', True)
+
+    def getdomainliteral(self):
+        &quot;&quot;&quot;Parse an RFC 2822 domain-literal.&quot;&quot;&quot;
+        return '[%s]' % self.getdelimited('[', ']\r', False)
+
+    def getatom(self, atomends=None):
+        &quot;&quot;&quot;Parse an RFC 2822 atom.
+
+        Optional atomends specifies a different set of end token delimiters
+        (the default is to use self.atomends).  This is used e.g. in
+        getphraselist() since phrase endings must not include the `.' (which
+        is legal in phrases).&quot;&quot;&quot;
+        atomlist = ['']
+        if atomends is None:
+            atomends = self.atomends
+
+        while self.pos &lt; len(self.field):
+            if self.field[self.pos] in atomends:
+                break
+            else:
+                atomlist.append(self.field[self.pos])
+            self.pos += 1
+
+        return EMPTYSTRING.join(atomlist)
+
+    def getphraselist(self):
+        &quot;&quot;&quot;Parse a sequence of RFC 2822 phrases.
+
+        A phrase is a sequence of words, which are in turn either RFC 2822
+        atoms or quoted-strings.  Phrases are canonicalized by squeezing all
+        runs of continuous whitespace into one space.
+        &quot;&quot;&quot;
+        plist = []
+
+        while self.pos &lt; len(self.field):
+            if self.field[self.pos] in self.FWS:
+                self.pos += 1
+            elif self.field[self.pos] == '&quot;':
+                plist.append(self.getquote())
+            elif self.field[self.pos] == '(':
+                self.commentlist.append(self.getcomment())
+            elif self.field[self.pos] in self.phraseends:
+                break
+            else:
+                plist.append(self.getatom(self.phraseends))
+
+        return plist
+
+class AddressList(AddrlistClass):
+    &quot;&quot;&quot;An AddressList encapsulates a list of parsed RFC 2822 addresses.&quot;&quot;&quot;
+    def __init__(self, field):
+        AddrlistClass.__init__(self, field)
+        if field:
+            self.addresslist = self.getaddrlist()
+        else:
+            self.addresslist = []
+
+    def __len__(self):
+        return len(self.addresslist)
+
+    def __add__(self, other):
+        # Set union
+        newaddr = AddressList(None)
+        newaddr.addresslist = self.addresslist[:]
+        for x in other.addresslist:
+            if not x in self.addresslist:
+                newaddr.addresslist.append(x)
+        return newaddr
+
+    def __iadd__(self, other):
+        # Set union, in-place
+        for x in other.addresslist:
+            if not x in self.addresslist:
+                self.addresslist.append(x)
+        return self
+
+    def __sub__(self, other):
+        # Set difference
+        newaddr = AddressList(None)
+        for x in self.addresslist:
+            if not x in other.addresslist:
+                newaddr.addresslist.append(x)
+        return newaddr
+
+    def __isub__(self, other):
+        # Set difference, in-place
+        for x in other.addresslist:
+            if x in self.addresslist:
+                self.addresslist.remove(x)
+        return self
+
+    def __getitem__(self, index):
+        # Make indexing, slices, and 'in' work
+        return self.addresslist[index]
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

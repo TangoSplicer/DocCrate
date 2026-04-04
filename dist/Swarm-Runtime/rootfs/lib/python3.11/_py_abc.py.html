@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>_py_abc.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">from _weakrefset import WeakSet
+
+
+def get_cache_token():
+    &quot;&quot;&quot;Returns the current ABC cache token.
+
+    The token is an opaque object (supporting equality testing) identifying the
+    current version of the ABC cache for virtual subclasses. The token changes
+    with every call to ``register()`` on any ABC.
+    &quot;&quot;&quot;
+    return ABCMeta._abc_invalidation_counter
+
+
+class ABCMeta(type):
+    &quot;&quot;&quot;Metaclass for defining Abstract Base Classes (ABCs).
+
+    Use this metaclass to create an ABC.  An ABC can be subclassed
+    directly, and then acts as a mix-in class.  You can also register
+    unrelated concrete classes (even built-in classes) and unrelated
+    ABCs as 'virtual subclasses' -- these and their descendants will
+    be considered subclasses of the registering ABC by the built-in
+    issubclass() function, but the registering ABC won't show up in
+    their MRO (Method Resolution Order) nor will method
+    implementations defined by the registering ABC be callable (not
+    even via super()).
+    &quot;&quot;&quot;
+
+    # A global counter that is incremented each time a class is
+    # registered as a virtual subclass of anything.  It forces the
+    # negative cache to be cleared before its next use.
+    # Note: this counter is private. Use `abc.get_cache_token()` for
+    #       external code.
+    _abc_invalidation_counter = 0
+
+    def __new__(mcls, name, bases, namespace, /, **kwargs):
+        cls = super().__new__(mcls, name, bases, namespace, **kwargs)
+        # Compute set of abstract method names
+        abstracts = {name
+                     for name, value in namespace.items()
+                     if getattr(value, &quot;__isabstractmethod__&quot;, False)}
+        for base in bases:
+            for name in getattr(base, &quot;__abstractmethods__&quot;, set()):
+                value = getattr(cls, name, None)
+                if getattr(value, &quot;__isabstractmethod__&quot;, False):
+                    abstracts.add(name)
+        cls.__abstractmethods__ = frozenset(abstracts)
+        # Set up inheritance registry
+        cls._abc_registry = WeakSet()
+        cls._abc_cache = WeakSet()
+        cls._abc_negative_cache = WeakSet()
+        cls._abc_negative_cache_version = ABCMeta._abc_invalidation_counter
+        return cls
+
+    def register(cls, subclass):
+        &quot;&quot;&quot;Register a virtual subclass of an ABC.
+
+        Returns the subclass, to allow usage as a class decorator.
+        &quot;&quot;&quot;
+        if not isinstance(subclass, type):
+            raise TypeError(&quot;Can only register classes&quot;)
+        if issubclass(subclass, cls):
+            return subclass  # Already a subclass
+        # Subtle: test for cycles *after* testing for &quot;already a subclass&quot;;
+        # this means we allow X.register(X) and interpret it as a no-op.
+        if issubclass(cls, subclass):
+            # This would create a cycle, which is bad for the algorithm below
+            raise RuntimeError(&quot;Refusing to create an inheritance cycle&quot;)
+        cls._abc_registry.add(subclass)
+        ABCMeta._abc_invalidation_counter += 1  # Invalidate negative cache
+        return subclass
+
+    def _dump_registry(cls, file=None):
+        &quot;&quot;&quot;Debug helper to print the ABC registry.&quot;&quot;&quot;
+        print(f&quot;Class: {cls.__module__}.{cls.__qualname__}&quot;, file=file)
+        print(f&quot;Inv. counter: {get_cache_token()}&quot;, file=file)
+        for name in cls.__dict__:
+            if name.startswith(&quot;_abc_&quot;):
+                value = getattr(cls, name)
+                if isinstance(value, WeakSet):
+                    value = set(value)
+                print(f&quot;{name}: {value!r}&quot;, file=file)
+
+    def _abc_registry_clear(cls):
+        &quot;&quot;&quot;Clear the registry (for debugging or testing).&quot;&quot;&quot;
+        cls._abc_registry.clear()
+
+    def _abc_caches_clear(cls):
+        &quot;&quot;&quot;Clear the caches (for debugging or testing).&quot;&quot;&quot;
+        cls._abc_cache.clear()
+        cls._abc_negative_cache.clear()
+
+    def __instancecheck__(cls, instance):
+        &quot;&quot;&quot;Override for isinstance(instance, cls).&quot;&quot;&quot;
+        # Inline the cache checking
+        subclass = instance.__class__
+        if subclass in cls._abc_cache:
+            return True
+        subtype = type(instance)
+        if subtype is subclass:
+            if (cls._abc_negative_cache_version ==
+                ABCMeta._abc_invalidation_counter and
+                subclass in cls._abc_negative_cache):
+                return False
+            # Fall back to the subclass check.
+            return cls.__subclasscheck__(subclass)
+        return any(cls.__subclasscheck__(c) for c in (subclass, subtype))
+
+    def __subclasscheck__(cls, subclass):
+        &quot;&quot;&quot;Override for issubclass(subclass, cls).&quot;&quot;&quot;
+        if not isinstance(subclass, type):
+            raise TypeError('issubclass() arg 1 must be a class')
+        # Check cache
+        if subclass in cls._abc_cache:
+            return True
+        # Check negative cache; may have to invalidate
+        if cls._abc_negative_cache_version &lt; ABCMeta._abc_invalidation_counter:
+            # Invalidate the negative cache
+            cls._abc_negative_cache = WeakSet()
+            cls._abc_negative_cache_version = ABCMeta._abc_invalidation_counter
+        elif subclass in cls._abc_negative_cache:
+            return False
+        # Check the subclass hook
+        ok = cls.__subclasshook__(subclass)
+        if ok is not NotImplemented:
+            assert isinstance(ok, bool)
+            if ok:
+                cls._abc_cache.add(subclass)
+            else:
+                cls._abc_negative_cache.add(subclass)
+            return ok
+        # Check if it's a direct subclass
+        if cls in getattr(subclass, '__mro__', ()):
+            cls._abc_cache.add(subclass)
+            return True
+        # Check if it's a subclass of a registered class (recursive)
+        for rcls in cls._abc_registry:
+            if issubclass(subclass, rcls):
+                cls._abc_cache.add(subclass)
+                return True
+        # Check if it's a subclass of a subclass (recursive)
+        for scls in cls.__subclasses__():
+            if issubclass(subclass, scls):
+                cls._abc_cache.add(subclass)
+                return True
+        # No dice; update negative cache
+        cls._abc_negative_cache.add(subclass)
+        return False
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

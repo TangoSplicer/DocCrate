@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHASE7_ARCHITECTURE.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <h1>Phase 7: Backend WebSocket &amp; ML Integration - Architecture Design</h1>
+<p><strong>Date:</strong> February 4, 2026<br />
+<strong>Phase:</strong> 7 of 10<br />
+<strong>Status:</strong> Design Phase<br />
+<strong>Objective:</strong> Implement real-time collaboration server, ML training pipeline, and GraphQL API</p>
+<hr />
+<h2>System Architecture Overview</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (React)                         │
+│  - WebSocket Client  - OT Engine  - Presence Tracking          │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ WebSocket + REST
+┌────────────────────────────▼────────────────────────────────────┐
+│                    FastAPI Backend                              │
+├─────────────────────────────────────────────────────────────────┤
+│  WebSocket Layer                                                │
+│  ├─ Connection Manager (async connection handling)             │
+│  ├─ Session Manager (collaboration sessions)                   │
+│  ├─ Message Router (message routing and broadcasting)          │
+│  └─ Authentication Handler (JWT validation)                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Message Processing                                             │
+│  ├─ Edit Operations (insert, delete, transform)                │
+│  ├─ Presence Updates (cursor, selection)                       │
+│  ├─ Comment Operations (add, resolve, delete)                  │
+│  └─ Undo/Redo Operations                                       │
+├─────────────────────────────────────────────────────────────────┤
+│  ML Intelligence Layer                                          │
+│  ├─ Model Manager (model versioning, loading)                  │
+│  ├─ Training Pipeline (data preparation, training)             │
+│  ├─ Prediction Engine (inference, optimization)                │
+│  └─ Performance Tracker (metrics, analytics)                   │
+├─────────────────────────────────────────────────────────────────┤
+│  GraphQL API Layer                                              │
+│  ├─ Schema Definition (queries, mutations, subscriptions)      │
+│  ├─ Resolvers (business logic)                                 │
+│  ├─ Middleware (authentication, logging)                       │
+│  └─ Subscriptions (real-time updates)                          │
+├─────────────────────────────────────────────────────────────────┤
+│  REST API Layer (Existing)                                      │
+│  ├─ Quantum Operations  ├─ Analytics  ├─ Compliance            │
+│  └─ Plugin Management   └─ Webhooks   └─ Monitoring            │
+└────────────────────────┬──────────────────────────────────────┬─┘
+                         │                                      │
+        ┌────────────────▼────────────┐        ┌────────────────▼────────┐
+        │   PostgreSQL Database       │        │   Redis Cache           │
+        │  - Sessions                 │        │  - Session Cache        │
+        │  - Collaboration Data       │        │  - Model Cache          │
+        │  - ML Models &amp; Metrics      │        │  - Rate Limiting        │
+        │  - Edit History             │        │  - Real-time Data       │
+        └─────────────────────────────┘        └─────────────────────────┘
+                         │
+        ┌────────────────▼────────────────────────────┐
+        │   Celery Task Queue                         │
+        │  - ML Model Training                        │
+        │  - Batch Processing                         │
+        │  - Background Jobs                          │
+        └─────────────────────────────────────────────┘
+                         │
+        ┌────────────────▼────────────────────────────┐
+        │   ML Infrastructure                         │
+        │  - TensorFlow/PyTorch                       │
+        │  - Model Storage                            │
+        │  - Training Data Pipeline                   │
+        └─────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<h2>WebSocket Server Design</h2>
+<h3>Connection Management</h3>
+<ul>
+<li><strong>Auto-reconnection:</strong> Exponential backoff (1s, 2s, 4s, 8s, max 30s)</li>
+<li><strong>Heartbeat:</strong> Ping/pong every 30 seconds</li>
+<li><strong>Connection timeout:</strong> 5 minutes of inactivity</li>
+<li><strong>Max connections per user:</strong> 5 concurrent connections</li>
+<li><strong>Message queue size:</strong> 1000 messages per connection</li>
+</ul>
+<h3>Session Management</h3>
+<ul>
+<li><strong>Session creation:</strong> On first user join</li>
+<li><strong>Session lifecycle:</strong> Created → Active → Archived</li>
+<li><strong>Session persistence:</strong> Stored in PostgreSQL</li>
+<li><strong>Session timeout:</strong> 24 hours of inactivity</li>
+<li><strong>Concurrent users:</strong> Up to 100 per session</li>
+</ul>
+<h3>Message Protocol</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;edit|presence|comment|undo|redo|sync&quot;,
+  &quot;session_id&quot;: &quot;uuid&quot;,
+  &quot;user_id&quot;: &quot;uuid&quot;,
+  &quot;timestamp&quot;: &quot;ISO8601&quot;,
+  &quot;data&quot;: {
+    &quot;operation&quot;: {...},
+    &quot;metadata&quot;: {...}
+  },
+  &quot;version&quot;: 1
+}
+</code></pre>
+<h3>Message Types</h3>
+<ol>
+<li>
+<p><strong>Edit Operations</strong></p>
+<ul>
+<li>Insert: <code>{type: &quot;insert&quot;, position: int, content: string}</code></li>
+<li>Delete: <code>{type: &quot;delete&quot;, position: int, length: int}</code></li>
+<li>Transform: <code>{type: &quot;transform&quot;, operation: OTOperation}</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Presence Updates</strong></p>
+<ul>
+<li>Cursor: <code>{type: &quot;cursor&quot;, line: int, column: int}</code></li>
+<li>Selection: <code>{type: &quot;selection&quot;, start: int, end: int}</code></li>
+<li>User Info: <code>{type: &quot;user_info&quot;, name: string, color: string}</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Comment Operations</strong></p>
+<ul>
+<li>Add: <code>{type: &quot;add_comment&quot;, line: int, text: string}</code></li>
+<li>Reply: <code>{type: &quot;reply_comment&quot;, comment_id: uuid, text: string}</code></li>
+<li>Resolve: <code>{type: &quot;resolve_comment&quot;, comment_id: uuid}</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Synchronization</strong></p>
+<ul>
+<li>Full Sync: <code>{type: &quot;full_sync&quot;, content: string, version: int}</code></li>
+<li>Ack: <code>{type: &quot;ack&quot;, operation_id: uuid}</code></li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2>ML Training Pipeline</h2>
+<h3>Architecture</h3>
+<pre><code>Data Collection
+    ↓
+Data Preprocessing
+    ↓
+Feature Engineering
+    ↓
+Model Training
+    ↓
+Model Evaluation
+    ↓
+Model Versioning
+    ↓
+Model Deployment
+</code></pre>
+<h3>Training Jobs</h3>
+<ol>
+<li>
+<p><strong>Circuit Optimization Model</strong></p>
+<ul>
+<li>Input: Circuit structure, gate operations, target backend</li>
+<li>Output: Optimized circuit with reduced gate count</li>
+<li>Training data: Historical optimization results</li>
+<li>Model type: Neural network with attention mechanism</li>
+<li>Update frequency: Weekly</li>
+</ul>
+</li>
+<li>
+<p><strong>Resource Estimation Model</strong></p>
+<ul>
+<li>Input: Circuit complexity, algorithm type, backend specs</li>
+<li>Output: Estimated qubits, classical bits, execution time</li>
+<li>Training data: Historical execution metrics</li>
+<li>Model type: Gradient boosting (XGBoost)</li>
+<li>Update frequency: Bi-weekly</li>
+</ul>
+</li>
+<li>
+<p><strong>Pattern Recognition Model</strong></p>
+<ul>
+<li>Input: Circuit patterns, execution history</li>
+<li>Output: Identified patterns, anomalies, optimizations</li>
+<li>Training data: Pattern database</li>
+<li>Model type: Unsupervised learning (clustering)</li>
+<li>Update frequency: Monthly</li>
+</ul>
+</li>
+</ol>
+<h3>Model Management</h3>
+<ul>
+<li><strong>Versioning:</strong> Semantic versioning (major.minor.patch)</li>
+<li><strong>Storage:</strong> Model files in S3/blob storage</li>
+<li><strong>Metadata:</strong> Model version, training date, performance metrics</li>
+<li><strong>Rollback:</strong> Automatic rollback if new model performs worse</li>
+<li><strong>A/B Testing:</strong> 10% traffic to new model initially</li>
+</ul>
+<hr />
+<h2>GraphQL API Design</h2>
+<h3>Schema Overview</h3>
+<pre><code class="language-graphql">type Query {
+  # Collaboration
+  session(id: ID!): CollaborationSession
+  sessions(limit: Int, offset: Int): [CollaborationSession!]!
+  
+  # ML Models
+  mlModel(id: ID!): MLModel
+  mlModels(type: String): [MLModel!]!
+  
+  # Predictions
+  predictOptimization(circuitId: ID!): OptimizationPrediction
+  estimateResources(circuitId: ID!): ResourceEstimate
+  analyzePattern(circuitId: ID!): PatternAnalysis
+  
+  # Analytics
+  sessionAnalytics(sessionId: ID!): SessionAnalytics
+  mlMetrics(modelId: ID!): ModelMetrics
+}
+
+type Mutation {
+  # Collaboration
+  createSession(input: CreateSessionInput!): CollaborationSession!
+  joinSession(sessionId: ID!): SessionParticipant!
+  leaveSession(sessionId: ID!): Boolean!
+  
+  # ML Models
+  trainModel(input: TrainModelInput!): TrainingJob!
+  deployModel(modelId: ID!, version: String!): Boolean!
+  
+  # Operations
+  applyEdit(sessionId: ID!, operation: EditOperationInput!): EditResult!
+  addComment(sessionId: ID!, input: CommentInput!): ThreadedComment!
+}
+
+type Subscription {
+  # Real-time updates
+  sessionUpdates(sessionId: ID!): SessionUpdate!
+  presenceUpdates(sessionId: ID!): PresenceUpdate!
+  editOperations(sessionId: ID!): EditOperation!
+  commentUpdates(sessionId: ID!): CommentUpdate!
+}
+</code></pre>
+<h3>Resolver Implementation</h3>
+<ul>
+<li><strong>Authentication:</strong> JWT token validation on all queries/mutations</li>
+<li><strong>Authorization:</strong> Role-based access control (RBAC)</li>
+<li><strong>Caching:</strong> Redis-based query result caching</li>
+<li><strong>Rate limiting:</strong> 1000 requests per minute per user</li>
+<li><strong>Error handling:</strong> Comprehensive error messages with error codes</li>
+</ul>
+<hr />
+<h2>Authentication &amp; Authorization</h2>
+<h3>WebSocket Authentication</h3>
+<ol>
+<li><strong>Initial Connection:</strong> Send JWT token in connection parameters</li>
+<li><strong>Token Validation:</strong> Verify JWT signature and expiration</li>
+<li><strong>User Identification:</strong> Extract user ID from JWT claims</li>
+<li><strong>Session Association:</strong> Link WebSocket connection to session</li>
+</ol>
+<h3>Authorization Levels</h3>
+<ul>
+<li><strong>Owner:</strong> Full access (create, edit, delete, manage permissions)</li>
+<li><strong>Editor:</strong> Edit access (create, edit operations)</li>
+<li><strong>Viewer:</strong> Read-only access (view, comment)</li>
+<li><strong>Guest:</strong> Limited access (view only, no comments)</li>
+</ul>
+<h3>Rate Limiting</h3>
+<ul>
+<li><strong>Connection rate:</strong> 10 connections per minute per user</li>
+<li><strong>Message rate:</strong> 100 messages per minute per connection</li>
+<li><strong>Edit rate:</strong> 50 edits per minute per user</li>
+<li><strong>Query rate:</strong> 1000 requests per minute per user</li>
+</ul>
+<hr />
+<h2>Data Models</h2>
+<h3>WebSocket-Related Models</h3>
+<pre><code class="language-python">class CollaborationSession(Base):
+    id: UUID
+    name: str
+    description: str
+    owner_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    archived_at: Optional[datetime]
+    max_participants: int
+    
+class SessionParticipant(Base):
+    id: UUID
+    session_id: UUID
+    user_id: UUID
+    role: str  # owner, editor, viewer, guest
+    joined_at: datetime
+    last_activity: datetime
+    
+class EditOperation(Base):
+    id: UUID
+    session_id: UUID
+    user_id: UUID
+    operation_type: str  # insert, delete, transform
+    position: int
+    content: str
+    version: int
+    created_at: datetime
+    
+class ThreadedComment(Base):
+    id: UUID
+    session_id: UUID
+    user_id: UUID
+    line: int
+    text: str
+    resolved: bool
+    created_at: datetime
+    updated_at: datetime
+</code></pre>
+<h3>ML-Related Models</h3>
+<pre><code class="language-python">class MLModel(Base):
+    id: UUID
+    name: str
+    type: str  # optimization, resource_estimation, pattern_recognition
+    version: str
+    status: str  # training, deployed, archived
+    accuracy: float
+    created_at: datetime
+    
+class TrainingJob(Base):
+    id: UUID
+    model_id: UUID
+    status: str  # pending, running, completed, failed
+    training_data_size: int
+    epochs: int
+    batch_size: int
+    learning_rate: float
+    started_at: datetime
+    completed_at: Optional[datetime]
+    
+class ModelMetrics(Base):
+    id: UUID
+    model_id: UUID
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    inference_time: float
+    recorded_at: datetime
+</code></pre>
+<hr />
+<h2>Performance Targets</h2>
+<p>| Metric | Target | Notes |
+|--------|--------|-------|
+| WebSocket latency | &lt; 100ms | P99 |
+| Message throughput | 10,000 msg/s | Per server |
+| Concurrent connections | 10,000 | Per server |
+| Edit sync latency | &lt; 50ms | P99 |
+| ML inference time | &lt; 500ms | P99 |
+| GraphQL query time | &lt; 200ms | P99 |</p>
+<hr />
+<h2>Security Considerations</h2>
+<ol>
+<li>
+<p><strong>WebSocket Security</strong></p>
+<ul>
+<li>Use WSS (WebSocket Secure) with TLS</li>
+<li>Validate all incoming messages</li>
+<li>Rate limit per connection</li>
+<li>Implement CSRF protection</li>
+</ul>
+</li>
+<li>
+<p><strong>ML Model Security</strong></p>
+<ul>
+<li>Validate training data sources</li>
+<li>Monitor model predictions for anomalies</li>
+<li>Implement model versioning for rollback</li>
+<li>Audit model usage</li>
+</ul>
+</li>
+<li>
+<p><strong>Data Privacy</strong></p>
+<ul>
+<li>Encrypt sensitive data at rest</li>
+<li>Use TLS for data in transit</li>
+<li>Implement row-level security</li>
+<li>Audit data access</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2>Deployment Strategy</h2>
+<h3>Phase 7.1: Development</h3>
+<ul>
+<li>Local development with mock WebSocket server</li>
+<li>Unit tests for all components</li>
+<li>Integration tests for WebSocket + database</li>
+</ul>
+<h3>Phase 7.2: Staging</h3>
+<ul>
+<li>Deploy to staging environment</li>
+<li>Load testing (1000 concurrent connections)</li>
+<li>Security testing and penetration testing</li>
+</ul>
+<h3>Phase 7.3: Production</h3>
+<ul>
+<li>Blue-green deployment</li>
+<li>Gradual rollout (10% → 50% → 100%)</li>
+<li>Monitoring and alerting</li>
+<li>Rollback plan</li>
+</ul>
+<hr />
+<h2>Success Criteria</h2>
+<ul>
+<li>✅ WebSocket server handles 10,000 concurrent connections</li>
+<li>✅ Real-time edit latency &lt; 100ms (P99)</li>
+<li>✅ ML model training pipeline operational</li>
+<li>✅ GraphQL API fully functional with subscriptions</li>
+<li>✅ Authentication and authorization working</li>
+<li>✅ Frontend integration complete</li>
+<li>✅ 95% test coverage</li>
+<li>✅ Production deployment successful</li>
+</ul>
+<hr />
+<h2>Timeline</h2>
+<p>| Task | Duration | Start | End |
+|------|----------|-------|-----|
+| WebSocket server implementation | 3 days | Day 1 | Day 3 |
+| ML training pipeline | 4 days | Day 2 | Day 5 |
+| GraphQL API | 3 days | Day 4 | Day 6 |
+| Authentication &amp; authorization | 2 days | Day 5 | Day 6 |
+| Frontend integration | 3 days | Day 6 | Day 8 |
+| Testing &amp; optimization | 3 days | Day 7 | Day 9 |
+| Documentation &amp; deployment | 2 days | Day 9 | Day 10 |</p>
+<p><strong>Total Duration:</strong> 10 days</p>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

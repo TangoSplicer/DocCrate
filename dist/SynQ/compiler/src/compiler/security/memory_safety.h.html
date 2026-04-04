@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>memory_safety.h</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-h">// MIT License
+// Copyright (c) 2025 SynQ Contributors
+// 
+// Phase 12: Security Hardening - Memory Safety System
+
+#pragma once
+
+#include &lt;memory&gt;
+#include &lt;vector&gt;
+#include &lt;unordered_map&gt;
+#include &lt;string&gt;
+#include &lt;stdexcept&gt;
+#include &lt;cstdint&gt;
+
+namespace synq::compiler::security {
+
+/**
+ * @enum Ownership
+ * @brief Ownership model for memory management
+ */
+enum class Ownership {
+    OWNED,      // Exclusive ownership - can move/transfer
+    BORROWED,   // Temporary reference - cannot move
+    SHARED,     // Shared ownership - reference counted
+};
+
+/**
+ * @enum BorrowType
+ * @brief Type of borrow for borrowed references
+ */
+enum class BorrowType {
+    IMMUTABLE,  // Immutable borrow - read-only
+    MUTABLE,    // Mutable borrow - read-write
+};
+
+/**
+ * @struct OwnershipMetadata
+ * @brief Metadata for ownership tracking
+ */
+struct OwnershipMetadata {
+    Ownership ownership;
+    BorrowType borrow_type;
+    uint64_t owner_id;
+    uint64_t borrow_id;
+    size_t borrow_count;
+    bool is_moved;
+    std::string location;  // File:line for debugging
+    uint64_t timestamp;    // When ownership was acquired
+};
+
+/**
+ * @class OwnershipTracker
+ * @brief Tracks ownership and borrowing relationships
+ * 
+ * The ownership system prevents:
+ * - Use-after-free bugs
+ * - Double-free bugs
+ * - Data races
+ * - Buffer overflows
+ * 
+ * Rules:
+ * 1. Each value has exactly one owner
+ * 2. Owner can transfer ownership (move)
+ * 3. Owner can lend references (borrow)
+ * 4. Multiple immutable borrows allowed
+ * 5. Only one mutable borrow allowed
+ * 6. No mutable borrow while immutable borrows exist
+ * 7. Borrowed references cannot be moved
+ */
+class OwnershipTracker {
+public:
+    OwnershipTracker();
+    ~OwnershipTracker();
+
+    /**
+     * @brief Register a new owned value
+     * @param value_id Unique identifier for the value
+     * @param owner_id Unique identifier for the owner
+     * @param location Source code location (file:line)
+     * @return true if registration successful
+     */
+    bool register_owned(uint64_t value_id, uint64_t owner_id, const std::string&amp; location);
+
+    /**
+     * @brief Transfer ownership from one owner to another
+     * @param value_id Value being transferred
+     * @param from_owner Current owner
+     * @param to_owner New owner
+     * @param location Source code location
+     * @return true if transfer successful
+     */
+    bool transfer_ownership(uint64_t value_id, uint64_t from_owner, uint64_t to_owner,
+                           const std::string&amp; location);
+
+    /**
+     * @brief Create an immutable borrow
+     * @param value_id Value being borrowed
+     * @param owner_id Owner of the value
+     * @param borrower_id Borrower identifier
+     * @param location Source code location
+     * @return true if borrow successful
+     */
+    bool borrow_immutable(uint64_t value_id, uint64_t owner_id, uint64_t borrower_id,
+                         const std::string&amp; location);
+
+    /**
+     * @brief Create a mutable borrow
+     * @param value_id Value being borrowed
+     * @param owner_id Owner of the value
+     * @param borrower_id Borrower identifier
+     * @param location Source code location
+     * @return true if borrow successful
+     */
+    bool borrow_mutable(uint64_t value_id, uint64_t owner_id, uint64_t borrower_id,
+                       const std::string&amp; location);
+
+    /**
+     * @brief Return a borrowed reference
+     * @param value_id Value being returned
+     * @param borrower_id Borrower returning the reference
+     * @param location Source code location
+     * @return true if return successful
+     */
+    bool return_borrow(uint64_t value_id, uint64_t borrower_id, const std::string&amp; location);
+
+    /**
+     * @brief Check if a value is borrowed
+     * @param value_id Value to check
+     * @return true if value is currently borrowed
+     */
+    bool is_borrowed(uint64_t value_id) const;
+
+    /**
+     * @brief Check if a value has been moved
+     * @param value_id Value to check
+     * @return true if value has been moved
+     */
+    bool is_moved(uint64_t value_id) const;
+
+    /**
+     * @brief Get ownership metadata for a value
+     * @param value_id Value to query
+     * @return Ownership metadata or nullptr if not found
+     */
+    const OwnershipMetadata* get_metadata(uint64_t value_id) const;
+
+    /**
+     * @brief Validate ownership rules
+     * @return true if all ownership rules are satisfied
+     */
+    bool validate() const;
+
+    /**
+     * @brief Get all violations
+     * @return Vector of violation descriptions
+     */
+    const std::vector&lt;std::string&gt;&amp; get_violations() const { return violations; }
+
+    /**
+     * @brief Clear all tracking data
+     */
+    void clear();
+
+private:
+    std::unordered_map&lt;uint64_t, OwnershipMetadata&gt; ownership_map;
+    std::unordered_map&lt;uint64_t, std::vector&lt;uint64_t&gt;&gt; borrow_graph;  // value -&gt; borrowers
+    std::vector&lt;std::string&gt; violations;
+
+    /**
+     * @brief Check if a mutable borrow is allowed
+     */
+    bool can_borrow_mutable(uint64_t value_id) const;
+
+    /**
+     * @brief Record a violation
+     */
+    void record_violation(const std::string&amp; violation);
+};
+
+/**
+ * @template Owned&lt;T&gt;
+ * @brief Smart pointer with ownership semantics
+ * 
+ * Owned&lt;T&gt; represents exclusive ownership of a value.
+ * Only one Owned&lt;T&gt; can exist for a given value.
+ * Owned&lt;T&gt; can be moved but not copied.
+ */
+template&lt;typename T&gt;
+class Owned {
+public:
+    explicit Owned(T* ptr, uint64_t owner_id, OwnershipTracker&amp; tracker)
+        : ptr(ptr), owner_id(owner_id), tracker(&amp;tracker), moved(false) {
+    }
+
+    ~Owned() {
+        if (ptr &amp;&amp; !moved) {
+            delete ptr;
+        }
+    }
+
+    // Move semantics (allowed)
+    Owned(Owned&amp;&amp; other) noexcept
+        : ptr(other.ptr), owner_id(other.owner_id), tracker(other.tracker), moved(false) {
+        other.moved = true;
+    }
+
+    Owned&amp; operator=(Owned&amp;&amp; other) noexcept {
+        if (this != &amp;other) {
+            if (ptr &amp;&amp; !moved) {
+                delete ptr;
+            }
+            ptr = other.ptr;
+            owner_id = other.owner_id;
+            tracker = other.tracker;
+            moved = false;
+            other.moved = true;
+        }
+        return *this;
+    }
+
+    // Copy semantics (deleted)
+    Owned(const Owned&amp;) = delete;
+    Owned&amp; operator=(const Owned&amp;) = delete;
+
+    // Access
+    T* operator-&gt;() { return ptr; }
+    const T* operator-&gt;() const { return ptr; }
+    T&amp; operator*() { return *ptr; }
+    const T&amp; operator*() const { return *ptr; }
+
+    // Get raw pointer
+    T* get() { return ptr; }
+    const T* get() const { return ptr; }
+
+    // Check if moved
+    bool is_moved() const { return moved; }
+
+private:
+    T* ptr;
+    uint64_t owner_id;
+    OwnershipTracker* tracker;
+    bool moved;
+};
+
+/**
+ * @template Borrowed&lt;T&gt;
+ * @brief Reference with borrow semantics
+ * 
+ * Borrowed&lt;T&gt; represents a temporary reference to a value.
+ * Multiple immutable Borrowed&lt;T&gt; can exist.
+ * Only one mutable Borrowed&lt;T&gt; can exist at a time.
+ * Borrowed&lt;T&gt; cannot be moved.
+ */
+template&lt;typename T&gt;
+class Borrowed {
+public:
+    explicit Borrowed(T* ptr, uint64_t borrower_id, OwnershipTracker&amp; tracker, bool mutable_borrow)
+        : ptr(ptr), borrower_id(borrower_id), tracker(&amp;tracker), mutable_borrow(mutable_borrow) {
+    }
+
+    ~Borrowed() {
+        // Borrow is automatically returned when Borrowed goes out of scope
+    }
+
+    // No move semantics (deleted)
+    Borrowed(Borrowed&amp;&amp;) = delete;
+    Borrowed&amp; operator=(Borrowed&amp;&amp;) = delete;
+
+    // No copy semantics (deleted)
+    Borrowed(const Borrowed&amp;) = delete;
+    Borrowed&amp; operator=(const Borrowed&amp;) = delete;
+
+    // Access
+    T* operator-&gt;() { return ptr; }
+    const T* operator-&gt;() const { return ptr; }
+    T&amp; operator*() { return *ptr; }
+    const T&amp; operator*() const { return *ptr; }
+
+    // Get raw pointer
+    T* get() { return ptr; }
+    const T* get() const { return ptr; }
+
+    // Check if mutable
+    bool is_mutable() const { return mutable_borrow; }
+
+private:
+    T* ptr;
+    uint64_t borrower_id;
+    OwnershipTracker* tracker;
+    bool mutable_borrow;
+};
+
+/**
+ * @class MemorySafetyValidator
+ * @brief Validates memory safety at compile time and runtime
+ */
+class MemorySafetyValidator {
+public:
+    explicit MemorySafetyValidator(OwnershipTracker&amp; tracker);
+
+    /**
+     * @brief Validate a code block for memory safety
+     * @param code_block Code to validate
+     * @return true if memory safe
+     */
+    bool validate_code_block(const std::string&amp; code_block);
+
+    /**
+     * @brief Check for use-after-free
+     * @return true if no use-after-free detected
+     */
+    bool check_use_after_free() const;
+
+    /**
+     * @brief Check for double-free
+     * @return true if no double-free detected
+     */
+    bool check_double_free() const;
+
+    /**
+     * @brief Check for data races
+     * @return true if no data races detected
+     */
+    bool check_data_races() const;
+
+    /**
+     * @brief Check for buffer overflows
+     * @return true if no buffer overflows detected
+     */
+    bool check_buffer_overflows() const;
+
+    /**
+     * @brief Get all detected issues
+     * @return Vector of issue descriptions
+     */
+    const std::vector&lt;std::string&gt;&amp; get_issues() const { return issues; }
+
+private:
+    OwnershipTracker&amp; tracker;
+    std::vector&lt;std::string&gt; issues;
+
+    void record_issue(const std::string&amp; issue);
+};
+
+} // namespace synq::compiler::security
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

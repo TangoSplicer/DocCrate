@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cProfile.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">#! /usr/bin/env python3
+
+&quot;&quot;&quot;Python interface for the 'lsprof' profiler.
+   Compatible with the 'profile' module.
+&quot;&quot;&quot;
+
+__all__ = [&quot;run&quot;, &quot;runctx&quot;, &quot;Profile&quot;]
+
+import _lsprof
+import profile as _pyprofile
+
+# ____________________________________________________________
+# Simple interface
+
+def run(statement, filename=None, sort=-1):
+    return _pyprofile._Utils(Profile).run(statement, filename, sort)
+
+def runctx(statement, globals, locals, filename=None, sort=-1):
+    return _pyprofile._Utils(Profile).runctx(statement, globals, locals,
+                                             filename, sort)
+
+run.__doc__ = _pyprofile.run.__doc__
+runctx.__doc__ = _pyprofile.runctx.__doc__
+
+# ____________________________________________________________
+
+class Profile(_lsprof.Profiler):
+    &quot;&quot;&quot;Profile(timer=None, timeunit=None, subcalls=True, builtins=True)
+
+    Builds a profiler object using the specified timer function.
+    The default timer is a fast built-in one based on real time.
+    For custom timer functions returning integers, timeunit can
+    be a float specifying a scale (i.e. how long each integer unit
+    is, in seconds).
+    &quot;&quot;&quot;
+
+    # Most of the functionality is in the base class.
+    # This subclass only adds convenient and backward-compatible methods.
+
+    def print_stats(self, sort=-1):
+        import pstats
+        pstats.Stats(self).strip_dirs().sort_stats(sort).print_stats()
+
+    def dump_stats(self, file):
+        import marshal
+        with open(file, 'wb') as f:
+            self.create_stats()
+            marshal.dump(self.stats, f)
+
+    def create_stats(self):
+        self.disable()
+        self.snapshot_stats()
+
+    def snapshot_stats(self):
+        entries = self.getstats()
+        self.stats = {}
+        callersdicts = {}
+        # call information
+        for entry in entries:
+            func = label(entry.code)
+            nc = entry.callcount         # ncalls column of pstats (before '/')
+            cc = nc - entry.reccallcount # ncalls column of pstats (after '/')
+            tt = entry.inlinetime        # tottime column of pstats
+            ct = entry.totaltime         # cumtime column of pstats
+            callers = {}
+            callersdicts[id(entry.code)] = callers
+            self.stats[func] = cc, nc, tt, ct, callers
+        # subcall information
+        for entry in entries:
+            if entry.calls:
+                func = label(entry.code)
+                for subentry in entry.calls:
+                    try:
+                        callers = callersdicts[id(subentry.code)]
+                    except KeyError:
+                        continue
+                    nc = subentry.callcount
+                    cc = nc - subentry.reccallcount
+                    tt = subentry.inlinetime
+                    ct = subentry.totaltime
+                    if func in callers:
+                        prev = callers[func]
+                        nc += prev[0]
+                        cc += prev[1]
+                        tt += prev[2]
+                        ct += prev[3]
+                    callers[func] = nc, cc, tt, ct
+
+    # The following two methods can be called by clients to use
+    # a profiler to profile a statement, given as a string.
+
+    def run(self, cmd):
+        import __main__
+        dict = __main__.__dict__
+        return self.runctx(cmd, dict, dict)
+
+    def runctx(self, cmd, globals, locals):
+        self.enable()
+        try:
+            exec(cmd, globals, locals)
+        finally:
+            self.disable()
+        return self
+
+    # This method is more useful to profile a single function call.
+    def runcall(self, func, /, *args, **kw):
+        self.enable()
+        try:
+            return func(*args, **kw)
+        finally:
+            self.disable()
+
+    def __enter__(self):
+        self.enable()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.disable()
+
+# ____________________________________________________________
+
+def label(code):
+    if isinstance(code, str):
+        return ('~', 0, code)    # built-in functions ('~' sorts at the end)
+    else:
+        return (code.co_filename, code.co_firstlineno, code.co_name)
+
+# ____________________________________________________________
+
+def main():
+    import os
+    import sys
+    import runpy
+    import pstats
+    from optparse import OptionParser
+    usage = &quot;cProfile.py [-o output_file_path] [-s sort] [-m module | scriptfile] [arg] ...&quot;
+    parser = OptionParser(usage=usage)
+    parser.allow_interspersed_args = False
+    parser.add_option('-o', '--outfile', dest=&quot;outfile&quot;,
+        help=&quot;Save stats to &lt;outfile&gt;&quot;, default=None)
+    parser.add_option('-s', '--sort', dest=&quot;sort&quot;,
+        help=&quot;Sort order when printing to stdout, based on pstats.Stats class&quot;,
+        default=2,
+        choices=sorted(pstats.Stats.sort_arg_dict_default))
+    parser.add_option('-m', dest=&quot;module&quot;, action=&quot;store_true&quot;,
+        help=&quot;Profile a library module&quot;, default=False)
+
+    if not sys.argv[1:]:
+        parser.print_usage()
+        sys.exit(2)
+
+    (options, args) = parser.parse_args()
+    sys.argv[:] = args
+
+    # The script that we're profiling may chdir, so capture the absolute path
+    # to the output file at startup.
+    if options.outfile is not None:
+        options.outfile = os.path.abspath(options.outfile)
+
+    if len(args) &gt; 0:
+        if options.module:
+            code = &quot;run_module(modname, run_name='__main__')&quot;
+            globs = {
+                'run_module': runpy.run_module,
+                'modname': args[0]
+            }
+        else:
+            progname = args[0]
+            sys.path.insert(0, os.path.dirname(progname))
+            with open(progname, 'rb') as fp:
+                code = compile(fp.read(), progname, 'exec')
+            globs = {
+                '__file__': progname,
+                '__name__': '__main__',
+                '__package__': None,
+                '__cached__': None,
+            }
+        try:
+            runctx(code, globs, None, options.outfile, options.sort)
+        except BrokenPipeError as exc:
+            # Prevent &quot;Exception ignored&quot; during interpreter shutdown.
+            sys.stdout = None
+            sys.exit(exc.errno)
+    else:
+        parser.print_usage()
+    return parser
+
+# When invoked as main program, invoke the profiler on a script
+if __name__ == '__main__':
+    main()
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

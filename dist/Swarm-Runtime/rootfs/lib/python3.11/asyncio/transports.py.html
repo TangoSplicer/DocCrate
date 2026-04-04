@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>transports.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;Abstract Transport class.&quot;&quot;&quot;
+
+__all__ = (
+    'BaseTransport', 'ReadTransport', 'WriteTransport',
+    'Transport', 'DatagramTransport', 'SubprocessTransport',
+)
+
+
+class BaseTransport:
+    &quot;&quot;&quot;Base class for transports.&quot;&quot;&quot;
+
+    __slots__ = ('_extra',)
+
+    def __init__(self, extra=None):
+        if extra is None:
+            extra = {}
+        self._extra = extra
+
+    def get_extra_info(self, name, default=None):
+        &quot;&quot;&quot;Get optional transport information.&quot;&quot;&quot;
+        return self._extra.get(name, default)
+
+    def is_closing(self):
+        &quot;&quot;&quot;Return True if the transport is closing or closed.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def close(self):
+        &quot;&quot;&quot;Close the transport.
+
+        Buffered data will be flushed asynchronously.  No more data
+        will be received.  After all buffered data is flushed, the
+        protocol's connection_lost() method will (eventually) be
+        called with None as its argument.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def set_protocol(self, protocol):
+        &quot;&quot;&quot;Set a new protocol.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def get_protocol(self):
+        &quot;&quot;&quot;Return the current protocol.&quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class ReadTransport(BaseTransport):
+    &quot;&quot;&quot;Interface for read-only transports.&quot;&quot;&quot;
+
+    __slots__ = ()
+
+    def is_reading(self):
+        &quot;&quot;&quot;Return True if the transport is receiving.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def pause_reading(self):
+        &quot;&quot;&quot;Pause the receiving end.
+
+        No data will be passed to the protocol's data_received()
+        method until resume_reading() is called.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def resume_reading(self):
+        &quot;&quot;&quot;Resume the receiving end.
+
+        Data received will once again be passed to the protocol's
+        data_received() method.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class WriteTransport(BaseTransport):
+    &quot;&quot;&quot;Interface for write-only transports.&quot;&quot;&quot;
+
+    __slots__ = ()
+
+    def set_write_buffer_limits(self, high=None, low=None):
+        &quot;&quot;&quot;Set the high- and low-water limits for write flow control.
+
+        These two values control when to call the protocol's
+        pause_writing() and resume_writing() methods.  If specified,
+        the low-water limit must be less than or equal to the
+        high-water limit.  Neither value can be negative.
+
+        The defaults are implementation-specific.  If only the
+        high-water limit is given, the low-water limit defaults to an
+        implementation-specific value less than or equal to the
+        high-water limit.  Setting high to zero forces low to zero as
+        well, and causes pause_writing() to be called whenever the
+        buffer becomes non-empty.  Setting low to zero causes
+        resume_writing() to be called only once the buffer is empty.
+        Use of zero for either limit is generally sub-optimal as it
+        reduces opportunities for doing I/O and computation
+        concurrently.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def get_write_buffer_size(self):
+        &quot;&quot;&quot;Return the current size of the write buffer.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def get_write_buffer_limits(self):
+        &quot;&quot;&quot;Get the high and low watermarks for write flow control.
+        Return a tuple (low, high) where low and high are
+        positive number of bytes.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def write(self, data):
+        &quot;&quot;&quot;Write some data bytes to the transport.
+
+        This does not block; it buffers the data and arranges for it
+        to be sent out asynchronously.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def writelines(self, list_of_data):
+        &quot;&quot;&quot;Write a list (or any iterable) of data bytes to the transport.
+
+        The default implementation concatenates the arguments and
+        calls write() on the result.
+        &quot;&quot;&quot;
+        data = b''.join(list_of_data)
+        self.write(data)
+
+    def write_eof(self):
+        &quot;&quot;&quot;Close the write end after flushing buffered data.
+
+        (This is like typing ^D into a UNIX program reading from stdin.)
+
+        Data may still be received.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def can_write_eof(self):
+        &quot;&quot;&quot;Return True if this transport supports write_eof(), False if not.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def abort(self):
+        &quot;&quot;&quot;Close the transport immediately.
+
+        Buffered data will be lost.  No more data will be received.
+        The protocol's connection_lost() method will (eventually) be
+        called with None as its argument.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class Transport(ReadTransport, WriteTransport):
+    &quot;&quot;&quot;Interface representing a bidirectional transport.
+
+    There may be several implementations, but typically, the user does
+    not implement new transports; rather, the platform provides some
+    useful transports that are implemented using the platform's best
+    practices.
+
+    The user never instantiates a transport directly; they call a
+    utility function, passing it a protocol factory and other
+    information necessary to create the transport and protocol.  (E.g.
+    EventLoop.create_connection() or EventLoop.create_server().)
+
+    The utility function will asynchronously create a transport and a
+    protocol and hook them up by calling the protocol's
+    connection_made() method, passing it the transport.
+
+    The implementation here raises NotImplemented for every method
+    except writelines(), which calls write() in a loop.
+    &quot;&quot;&quot;
+
+    __slots__ = ()
+
+
+class DatagramTransport(BaseTransport):
+    &quot;&quot;&quot;Interface for datagram (UDP) transports.&quot;&quot;&quot;
+
+    __slots__ = ()
+
+    def sendto(self, data, addr=None):
+        &quot;&quot;&quot;Send data to the transport.
+
+        This does not block; it buffers the data and arranges for it
+        to be sent out asynchronously.
+        addr is target socket address.
+        If addr is None use target address pointed on transport creation.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def abort(self):
+        &quot;&quot;&quot;Close the transport immediately.
+
+        Buffered data will be lost.  No more data will be received.
+        The protocol's connection_lost() method will (eventually) be
+        called with None as its argument.
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class SubprocessTransport(BaseTransport):
+
+    __slots__ = ()
+
+    def get_pid(self):
+        &quot;&quot;&quot;Get subprocess id.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def get_returncode(self):
+        &quot;&quot;&quot;Get subprocess returncode.
+
+        See also
+        http://docs.python.org/3/library/subprocess#subprocess.Popen.returncode
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def get_pipe_transport(self, fd):
+        &quot;&quot;&quot;Get transport for pipe with number fd.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def send_signal(self, signal):
+        &quot;&quot;&quot;Send signal to subprocess.
+
+        See also:
+        docs.python.org/3/library/subprocess#subprocess.Popen.send_signal
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def terminate(self):
+        &quot;&quot;&quot;Stop the subprocess.
+
+        Alias for close() method.
+
+        On Posix OSs the method sends SIGTERM to the subprocess.
+        On Windows the Win32 API function TerminateProcess()
+         is called to stop the subprocess.
+
+        See also:
+        http://docs.python.org/3/library/subprocess#subprocess.Popen.terminate
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+    def kill(self):
+        &quot;&quot;&quot;Kill the subprocess.
+
+        On Posix OSs the function sends SIGKILL to the subprocess.
+        On Windows kill() is an alias for terminate().
+
+        See also:
+        http://docs.python.org/3/library/subprocess#subprocess.Popen.kill
+        &quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class _FlowControlMixin(Transport):
+    &quot;&quot;&quot;All the logic for (write) flow control in a mix-in base class.
+
+    The subclass must implement get_write_buffer_size().  It must call
+    _maybe_pause_protocol() whenever the write buffer size increases,
+    and _maybe_resume_protocol() whenever it decreases.  It may also
+    override set_write_buffer_limits() (e.g. to specify different
+    defaults).
+
+    The subclass constructor must call super().__init__(extra).  This
+    will call set_write_buffer_limits().
+
+    The user may call set_write_buffer_limits() and
+    get_write_buffer_size(), and their protocol's pause_writing() and
+    resume_writing() may be called.
+    &quot;&quot;&quot;
+
+    __slots__ = ('_loop', '_protocol_paused', '_high_water', '_low_water')
+
+    def __init__(self, extra=None, loop=None):
+        super().__init__(extra)
+        assert loop is not None
+        self._loop = loop
+        self._protocol_paused = False
+        self._set_write_buffer_limits()
+
+    def _maybe_pause_protocol(self):
+        size = self.get_write_buffer_size()
+        if size &lt;= self._high_water:
+            return
+        if not self._protocol_paused:
+            self._protocol_paused = True
+            try:
+                self._protocol.pause_writing()
+            except (SystemExit, KeyboardInterrupt):
+                raise
+            except BaseException as exc:
+                self._loop.call_exception_handler({
+                    'message': 'protocol.pause_writing() failed',
+                    'exception': exc,
+                    'transport': self,
+                    'protocol': self._protocol,
+                })
+
+    def _maybe_resume_protocol(self):
+        if (self._protocol_paused and
+                self.get_write_buffer_size() &lt;= self._low_water):
+            self._protocol_paused = False
+            try:
+                self._protocol.resume_writing()
+            except (SystemExit, KeyboardInterrupt):
+                raise
+            except BaseException as exc:
+                self._loop.call_exception_handler({
+                    'message': 'protocol.resume_writing() failed',
+                    'exception': exc,
+                    'transport': self,
+                    'protocol': self._protocol,
+                })
+
+    def get_write_buffer_limits(self):
+        return (self._low_water, self._high_water)
+
+    def _set_write_buffer_limits(self, high=None, low=None):
+        if high is None:
+            if low is None:
+                high = 64 * 1024
+            else:
+                high = 4 * low
+        if low is None:
+            low = high // 4
+
+        if not high &gt;= low &gt;= 0:
+            raise ValueError(
+                f'high ({high!r}) must be &gt;= low ({low!r}) must be &gt;= 0')
+
+        self._high_water = high
+        self._low_water = low
+
+    def set_write_buffer_limits(self, high=None, low=None):
+        self._set_write_buffer_limits(high=high, low=low)
+        self._maybe_pause_protocol()
+
+    def get_write_buffer_size(self):
+        raise NotImplementedError
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gzip.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;Functions that read and write gzipped files.
+
+The user of the file doesn't have to worry about the compression,
+but random access is not allowed.&quot;&quot;&quot;
+
+# based on Andrew Kuchling's minigzip.py distributed with the zlib module
+
+import struct, sys, time, os
+import zlib
+import builtins
+import io
+import _compression
+
+__all__ = [&quot;BadGzipFile&quot;, &quot;GzipFile&quot;, &quot;open&quot;, &quot;compress&quot;, &quot;decompress&quot;]
+
+FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
+
+READ, WRITE = 1, 2
+
+_COMPRESS_LEVEL_FAST = 1
+_COMPRESS_LEVEL_TRADEOFF = 6
+_COMPRESS_LEVEL_BEST = 9
+
+
+def open(filename, mode=&quot;rb&quot;, compresslevel=_COMPRESS_LEVEL_BEST,
+         encoding=None, errors=None, newline=None):
+    &quot;&quot;&quot;Open a gzip-compressed file in binary or text mode.
+
+    The filename argument can be an actual filename (a str or bytes object), or
+    an existing file object to read from or write to.
+
+    The mode argument can be &quot;r&quot;, &quot;rb&quot;, &quot;w&quot;, &quot;wb&quot;, &quot;x&quot;, &quot;xb&quot;, &quot;a&quot; or &quot;ab&quot; for
+    binary mode, or &quot;rt&quot;, &quot;wt&quot;, &quot;xt&quot; or &quot;at&quot; for text mode. The default mode is
+    &quot;rb&quot;, and the default compresslevel is 9.
+
+    For binary mode, this function is equivalent to the GzipFile constructor:
+    GzipFile(filename, mode, compresslevel). In this case, the encoding, errors
+    and newline arguments must not be provided.
+
+    For text mode, a GzipFile object is created, and wrapped in an
+    io.TextIOWrapper instance with the specified encoding, error handling
+    behavior, and line ending(s).
+
+    &quot;&quot;&quot;
+    if &quot;t&quot; in mode:
+        if &quot;b&quot; in mode:
+            raise ValueError(&quot;Invalid mode: %r&quot; % (mode,))
+    else:
+        if encoding is not None:
+            raise ValueError(&quot;Argument 'encoding' not supported in binary mode&quot;)
+        if errors is not None:
+            raise ValueError(&quot;Argument 'errors' not supported in binary mode&quot;)
+        if newline is not None:
+            raise ValueError(&quot;Argument 'newline' not supported in binary mode&quot;)
+
+    gz_mode = mode.replace(&quot;t&quot;, &quot;&quot;)
+    if isinstance(filename, (str, bytes, os.PathLike)):
+        binary_file = GzipFile(filename, gz_mode, compresslevel)
+    elif hasattr(filename, &quot;read&quot;) or hasattr(filename, &quot;write&quot;):
+        binary_file = GzipFile(None, gz_mode, compresslevel, filename)
+    else:
+        raise TypeError(&quot;filename must be a str or bytes object, or a file&quot;)
+
+    if &quot;t&quot; in mode:
+        encoding = io.text_encoding(encoding)
+        return io.TextIOWrapper(binary_file, encoding, errors, newline)
+    else:
+        return binary_file
+
+def write32u(output, value):
+    # The L format writes the bit pattern correctly whether signed
+    # or unsigned.
+    output.write(struct.pack(&quot;&lt;L&quot;, value))
+
+class _PaddedFile:
+    &quot;&quot;&quot;Minimal read-only file object that prepends a string to the contents
+    of an actual file. Shouldn't be used outside of gzip.py, as it lacks
+    essential functionality.&quot;&quot;&quot;
+
+    def __init__(self, f, prepend=b''):
+        self._buffer = prepend
+        self._length = len(prepend)
+        self.file = f
+        self._read = 0
+
+    def read(self, size):
+        if self._read is None:
+            return self.file.read(size)
+        if self._read + size &lt;= self._length:
+            read = self._read
+            self._read += size
+            return self._buffer[read:self._read]
+        else:
+            read = self._read
+            self._read = None
+            return self._buffer[read:] + \
+                   self.file.read(size-self._length+read)
+
+    def prepend(self, prepend=b''):
+        if self._read is None:
+            self._buffer = prepend
+        else:  # Assume data was read since the last prepend() call
+            self._read -= len(prepend)
+            return
+        self._length = len(self._buffer)
+        self._read = 0
+
+    def seek(self, off):
+        self._read = None
+        self._buffer = None
+        return self.file.seek(off)
+
+    def seekable(self):
+        return True  # Allows fast-forwarding even in unseekable streams
+
+
+class BadGzipFile(OSError):
+    &quot;&quot;&quot;Exception raised in some cases for invalid gzip files.&quot;&quot;&quot;
+
+
+class GzipFile(_compression.BaseStream):
+    &quot;&quot;&quot;The GzipFile class simulates most of the methods of a file object with
+    the exception of the truncate() method.
+
+    This class only supports opening files in binary mode. If you need to open a
+    compressed file in text mode, use the gzip.open() function.
+
+    &quot;&quot;&quot;
+
+    # Overridden with internal file object to be closed, if only a filename
+    # is passed in
+    myfileobj = None
+
+    def __init__(self, filename=None, mode=None,
+                 compresslevel=_COMPRESS_LEVEL_BEST, fileobj=None, mtime=None):
+        &quot;&quot;&quot;Constructor for the GzipFile class.
+
+        At least one of fileobj and filename must be given a
+        non-trivial value.
+
+        The new class instance is based on fileobj, which can be a regular
+        file, an io.BytesIO object, or any other object which simulates a file.
+        It defaults to None, in which case filename is opened to provide
+        a file object.
+
+        When fileobj is not None, the filename argument is only used to be
+        included in the gzip file header, which may include the original
+        filename of the uncompressed file.  It defaults to the filename of
+        fileobj, if discernible; otherwise, it defaults to the empty string,
+        and in this case the original filename is not included in the header.
+
+        The mode argument can be any of 'r', 'rb', 'a', 'ab', 'w', 'wb', 'x', or
+        'xb' depending on whether the file will be read or written.  The default
+        is the mode of fileobj if discernible; otherwise, the default is 'rb'.
+        A mode of 'r' is equivalent to one of 'rb', and similarly for 'w' and
+        'wb', 'a' and 'ab', and 'x' and 'xb'.
+
+        The compresslevel argument is an integer from 0 to 9 controlling the
+        level of compression; 1 is fastest and produces the least compression,
+        and 9 is slowest and produces the most compression. 0 is no compression
+        at all. The default is 9.
+
+        The mtime argument is an optional numeric timestamp to be written
+        to the last modification time field in the stream when compressing.
+        If omitted or None, the current time is used.
+
+        &quot;&quot;&quot;
+
+        if mode and ('t' in mode or 'U' in mode):
+            raise ValueError(&quot;Invalid mode: {!r}&quot;.format(mode))
+        if mode and 'b' not in mode:
+            mode += 'b'
+        if fileobj is None:
+            fileobj = self.myfileobj = builtins.open(filename, mode or 'rb')
+        if filename is None:
+            filename = getattr(fileobj, 'name', '')
+            if not isinstance(filename, (str, bytes)):
+                filename = ''
+        else:
+            filename = os.fspath(filename)
+        origmode = mode
+        if mode is None:
+            mode = getattr(fileobj, 'mode', 'rb')
+
+        if mode.startswith('r'):
+            self.mode = READ
+            raw = _GzipReader(fileobj)
+            self._buffer = io.BufferedReader(raw)
+            self.name = filename
+
+        elif mode.startswith(('w', 'a', 'x')):
+            if origmode is None:
+                import warnings
+                warnings.warn(
+                    &quot;GzipFile was opened for writing, but this will &quot;
+                    &quot;change in future Python releases.  &quot;
+                    &quot;Specify the mode argument for opening it for writing.&quot;,
+                    FutureWarning, 2)
+            self.mode = WRITE
+            self._init_write(filename)
+            self.compress = zlib.compressobj(compresslevel,
+                                             zlib.DEFLATED,
+                                             -zlib.MAX_WBITS,
+                                             zlib.DEF_MEM_LEVEL,
+                                             0)
+            self._write_mtime = mtime
+        else:
+            raise ValueError(&quot;Invalid mode: {!r}&quot;.format(mode))
+
+        self.fileobj = fileobj
+
+        if self.mode == WRITE:
+            self._write_gzip_header(compresslevel)
+
+    @property
+    def filename(self):
+        import warnings
+        warnings.warn(&quot;use the name attribute&quot;, DeprecationWarning, 2)
+        if self.mode == WRITE and self.name[-3:] != &quot;.gz&quot;:
+            return self.name + &quot;.gz&quot;
+        return self.name
+
+    @property
+    def mtime(self):
+        &quot;&quot;&quot;Last modification time read from stream, or None&quot;&quot;&quot;
+        return self._buffer.raw._last_mtime
+
+    def __repr__(self):
+        s = repr(self.fileobj)
+        return '&lt;gzip ' + s[1:-1] + ' ' + hex(id(self)) + '&gt;'
+
+    def _init_write(self, filename):
+        self.name = filename
+        self.crc = zlib.crc32(b&quot;&quot;)
+        self.size = 0
+        self.writebuf = []
+        self.bufsize = 0
+        self.offset = 0  # Current file offset for seek(), tell(), etc
+
+    def _write_gzip_header(self, compresslevel):
+        self.fileobj.write(b'\037\213')             # magic header
+        self.fileobj.write(b'\010')                 # compression method
+        try:
+            # RFC 1952 requires the FNAME field to be Latin-1. Do not
+            # include filenames that cannot be represented that way.
+            fname = os.path.basename(self.name)
+            if not isinstance(fname, bytes):
+                fname = fname.encode('latin-1')
+            if fname.endswith(b'.gz'):
+                fname = fname[:-3]
+        except UnicodeEncodeError:
+            fname = b''
+        flags = 0
+        if fname:
+            flags = FNAME
+        self.fileobj.write(chr(flags).encode('latin-1'))
+        mtime = self._write_mtime
+        if mtime is None:
+            mtime = time.time()
+        write32u(self.fileobj, int(mtime))
+        if compresslevel == _COMPRESS_LEVEL_BEST:
+            xfl = b'\002'
+        elif compresslevel == _COMPRESS_LEVEL_FAST:
+            xfl = b'\004'
+        else:
+            xfl = b'\000'
+        self.fileobj.write(xfl)
+        self.fileobj.write(b'\377')
+        if fname:
+            self.fileobj.write(fname + b'\000')
+
+    def write(self,data):
+        self._check_not_closed()
+        if self.mode != WRITE:
+            import errno
+            raise OSError(errno.EBADF, &quot;write() on read-only GzipFile object&quot;)
+
+        if self.fileobj is None:
+            raise ValueError(&quot;write() on closed GzipFile object&quot;)
+
+        if isinstance(data, (bytes, bytearray)):
+            length = len(data)
+        else:
+            # accept any data that supports the buffer protocol
+            data = memoryview(data)
+            length = data.nbytes
+
+        if length &gt; 0:
+            self.fileobj.write(self.compress.compress(data))
+            self.size += length
+            self.crc = zlib.crc32(data, self.crc)
+            self.offset += length
+
+        return length
+
+    def read(self, size=-1):
+        self._check_not_closed()
+        if self.mode != READ:
+            import errno
+            raise OSError(errno.EBADF, &quot;read() on write-only GzipFile object&quot;)
+        return self._buffer.read(size)
+
+    def read1(self, size=-1):
+        &quot;&quot;&quot;Implements BufferedIOBase.read1()
+
+        Reads up to a buffer's worth of data if size is negative.&quot;&quot;&quot;
+        self._check_not_closed()
+        if self.mode != READ:
+            import errno
+            raise OSError(errno.EBADF, &quot;read1() on write-only GzipFile object&quot;)
+
+        if size &lt; 0:
+            size = io.DEFAULT_BUFFER_SIZE
+        return self._buffer.read1(size)
+
+    def peek(self, n):
+        self._check_not_closed()
+        if self.mode != READ:
+            import errno
+            raise OSError(errno.EBADF, &quot;peek() on write-only GzipFile object&quot;)
+        return self._buffer.peek(n)
+
+    @property
+    def closed(self):
+        return self.fileobj is None
+
+    def close(self):
+        fileobj = self.fileobj
+        if fileobj is None:
+            return
+        self.fileobj = None
+        try:
+            if self.mode == WRITE:
+                fileobj.write(self.compress.flush())
+                write32u(fileobj, self.crc)
+                # self.size may exceed 2 GiB, or even 4 GiB
+                write32u(fileobj, self.size &amp; 0xffffffff)
+            elif self.mode == READ:
+                self._buffer.close()
+        finally:
+            myfileobj = self.myfileobj
+            if myfileobj:
+                self.myfileobj = None
+                myfileobj.close()
+
+    def flush(self,zlib_mode=zlib.Z_SYNC_FLUSH):
+        self._check_not_closed()
+        if self.mode == WRITE:
+            # Ensure the compressor's buffer is flushed
+            self.fileobj.write(self.compress.flush(zlib_mode))
+            self.fileobj.flush()
+
+    def fileno(self):
+        &quot;&quot;&quot;Invoke the underlying file object's fileno() method.
+
+        This will raise AttributeError if the underlying file object
+        doesn't support fileno().
+        &quot;&quot;&quot;
+        return self.fileobj.fileno()
+
+    def rewind(self):
+        '''Return the uncompressed stream file position indicator to the
+        beginning of the file'''
+        if self.mode != READ:
+            raise OSError(&quot;Can't rewind in write mode&quot;)
+        self._buffer.seek(0)
+
+    def readable(self):
+        return self.mode == READ
+
+    def writable(self):
+        return self.mode == WRITE
+
+    def seekable(self):
+        return True
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        if self.mode == WRITE:
+            if whence != io.SEEK_SET:
+                if whence == io.SEEK_CUR:
+                    offset = self.offset + offset
+                else:
+                    raise ValueError('Seek from end not supported')
+            if offset &lt; self.offset:
+                raise OSError('Negative seek in write mode')
+            count = offset - self.offset
+            chunk = b'\0' * 1024
+            for i in range(count // 1024):
+                self.write(chunk)
+            self.write(b'\0' * (count % 1024))
+        elif self.mode == READ:
+            self._check_not_closed()
+            return self._buffer.seek(offset, whence)
+
+        return self.offset
+
+    def readline(self, size=-1):
+        self._check_not_closed()
+        return self._buffer.readline(size)
+
+
+def _read_exact(fp, n):
+    '''Read exactly *n* bytes from `fp`
+
+    This method is required because fp may be unbuffered,
+    i.e. return short reads.
+    '''
+    data = fp.read(n)
+    while len(data) &lt; n:
+        b = fp.read(n - len(data))
+        if not b:
+            raise EOFError(&quot;Compressed file ended before the &quot;
+                           &quot;end-of-stream marker was reached&quot;)
+        data += b
+    return data
+
+
+def _read_gzip_header(fp):
+    '''Read a gzip header from `fp` and progress to the end of the header.
+
+    Returns last mtime if header was present or None otherwise.
+    '''
+    magic = fp.read(2)
+    if magic == b'':
+        return None
+
+    if magic != b'\037\213':
+        raise BadGzipFile('Not a gzipped file (%r)' % magic)
+
+    (method, flag, last_mtime) = struct.unpack(&quot;&lt;BBIxx&quot;, _read_exact(fp, 8))
+    if method != 8:
+        raise BadGzipFile('Unknown compression method')
+
+    if flag &amp; FEXTRA:
+        # Read &amp; discard the extra field, if present
+        extra_len, = struct.unpack(&quot;&lt;H&quot;, _read_exact(fp, 2))
+        _read_exact(fp, extra_len)
+    if flag &amp; FNAME:
+        # Read and discard a null-terminated string containing the filename
+        while True:
+            s = fp.read(1)
+            if not s or s==b'\000':
+                break
+    if flag &amp; FCOMMENT:
+        # Read and discard a null-terminated string containing a comment
+        while True:
+            s = fp.read(1)
+            if not s or s==b'\000':
+                break
+    if flag &amp; FHCRC:
+        _read_exact(fp, 2)     # Read &amp; discard the 16-bit header CRC
+    return last_mtime
+
+
+class _GzipReader(_compression.DecompressReader):
+    def __init__(self, fp):
+        super().__init__(_PaddedFile(fp), zlib.decompressobj,
+                         wbits=-zlib.MAX_WBITS)
+        # Set flag indicating start of a new member
+        self._new_member = True
+        self._last_mtime = None
+
+    def _init_read(self):
+        self._crc = zlib.crc32(b&quot;&quot;)
+        self._stream_size = 0  # Decompressed size of unconcatenated stream
+
+    def _read_gzip_header(self):
+        last_mtime = _read_gzip_header(self._fp)
+        if last_mtime is None:
+            return False
+        self._last_mtime = last_mtime
+        return True
+
+    def read(self, size=-1):
+        if size &lt; 0:
+            return self.readall()
+        # size=0 is special because decompress(max_length=0) is not supported
+        if not size:
+            return b&quot;&quot;
+
+        # For certain input data, a single
+        # call to decompress() may not return
+        # any data. In this case, retry until we get some data or reach EOF.
+        while True:
+            if self._decompressor.eof:
+                # Ending case: we've come to the end of a member in the file,
+                # so finish up this member, and read a new gzip header.
+                # Check the CRC and file size, and set the flag so we read
+                # a new member
+                self._read_eof()
+                self._new_member = True
+                self._decompressor = self._decomp_factory(
+                    **self._decomp_args)
+
+            if self._new_member:
+                # If the _new_member flag is set, we have to
+                # jump to the next member, if there is one.
+                self._init_read()
+                if not self._read_gzip_header():
+                    self._size = self._pos
+                    return b&quot;&quot;
+                self._new_member = False
+
+            # Read a chunk of data from the file
+            buf = self._fp.read(io.DEFAULT_BUFFER_SIZE)
+
+            uncompress = self._decompressor.decompress(buf, size)
+            if self._decompressor.unconsumed_tail != b&quot;&quot;:
+                self._fp.prepend(self._decompressor.unconsumed_tail)
+            elif self._decompressor.unused_data != b&quot;&quot;:
+                # Prepend the already read bytes to the fileobj so they can
+                # be seen by _read_eof() and _read_gzip_header()
+                self._fp.prepend(self._decompressor.unused_data)
+
+            if uncompress != b&quot;&quot;:
+                break
+            if buf == b&quot;&quot;:
+                raise EOFError(&quot;Compressed file ended before the &quot;
+                               &quot;end-of-stream marker was reached&quot;)
+
+        self._add_read_data( uncompress )
+        self._pos += len(uncompress)
+        return uncompress
+
+    def _add_read_data(self, data):
+        self._crc = zlib.crc32(data, self._crc)
+        self._stream_size = self._stream_size + len(data)
+
+    def _read_eof(self):
+        # We've read to the end of the file
+        # We check that the computed CRC and size of the
+        # uncompressed data matches the stored values.  Note that the size
+        # stored is the true file size mod 2**32.
+        crc32, isize = struct.unpack(&quot;&lt;II&quot;, _read_exact(self._fp, 8))
+        if crc32 != self._crc:
+            raise BadGzipFile(&quot;CRC check failed %s != %s&quot; % (hex(crc32),
+                                                             hex(self._crc)))
+        elif isize != (self._stream_size &amp; 0xffffffff):
+            raise BadGzipFile(&quot;Incorrect length of data produced&quot;)
+
+        # Gzip files can be padded with zeroes and still have archives.
+        # Consume all zero bytes and set the file position to the first
+        # non-zero byte. See http://www.gzip.org/#faq8
+        c = b&quot;\x00&quot;
+        while c == b&quot;\x00&quot;:
+            c = self._fp.read(1)
+        if c:
+            self._fp.prepend(c)
+
+    def _rewind(self):
+        super()._rewind()
+        self._new_member = True
+
+
+def _create_simple_gzip_header(compresslevel: int,
+                               mtime = None) -&gt; bytes:
+    &quot;&quot;&quot;
+    Write a simple gzip header with no extra fields.
+    :param compresslevel: Compresslevel used to determine the xfl bytes.
+    :param mtime: The mtime (must support conversion to a 32-bit integer).
+    :return: A bytes object representing the gzip header.
+    &quot;&quot;&quot;
+    if mtime is None:
+        mtime = time.time()
+    if compresslevel == _COMPRESS_LEVEL_BEST:
+        xfl = 2
+    elif compresslevel == _COMPRESS_LEVEL_FAST:
+        xfl = 4
+    else:
+        xfl = 0
+    # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
+    # fields added to header), mtime, xfl and os (255 for unknown OS).
+    return struct.pack(&quot;&lt;BBBBLBB&quot;, 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
+
+
+def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
+    &quot;&quot;&quot;Compress data in one shot and return the compressed string.
+
+    compresslevel sets the compression level in range of 0-9.
+    mtime can be used to set the modification time. The modification time is
+    set to the current time by default.
+    &quot;&quot;&quot;
+    if mtime == 0:
+        # Use zlib as it creates the header with 0 mtime by default.
+        # This is faster and with less overhead.
+        return zlib.compress(data, level=compresslevel, wbits=31)
+    header = _create_simple_gzip_header(compresslevel, mtime)
+    trailer = struct.pack(&quot;&lt;LL&quot;, zlib.crc32(data), (len(data) &amp; 0xffffffff))
+    # Wbits=-15 creates a raw deflate block.
+    return (header + zlib.compress(data, level=compresslevel, wbits=-15) +
+            trailer)
+
+
+def decompress(data):
+    &quot;&quot;&quot;Decompress a gzip compressed string in one shot.
+    Return the decompressed string.
+    &quot;&quot;&quot;
+    decompressed_members = []
+    while True:
+        fp = io.BytesIO(data)
+        if _read_gzip_header(fp) is None:
+            return b&quot;&quot;.join(decompressed_members)
+        # Use a zlib raw deflate compressor
+        do = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
+        # Read all the data except the header
+        decompressed = do.decompress(data[fp.tell():])
+        if not do.eof or len(do.unused_data) &lt; 8:
+            raise EOFError(&quot;Compressed file ended before the end-of-stream &quot;
+                           &quot;marker was reached&quot;)
+        crc, length = struct.unpack(&quot;&lt;II&quot;, do.unused_data[:8])
+        if crc != zlib.crc32(decompressed):
+            raise BadGzipFile(&quot;CRC check failed&quot;)
+        if length != (len(decompressed) &amp; 0xffffffff):
+            raise BadGzipFile(&quot;Incorrect length of data produced&quot;)
+        decompressed_members.append(decompressed)
+        data = do.unused_data[8:].lstrip(b&quot;\x00&quot;)
+
+
+def main():
+    from argparse import ArgumentParser
+    parser = ArgumentParser(description=
+        &quot;A simple command line interface for the gzip module: act like gzip, &quot;
+        &quot;but do not delete the input file.&quot;)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--fast', action='store_true', help='compress faster')
+    group.add_argument('--best', action='store_true', help='compress better')
+    group.add_argument(&quot;-d&quot;, &quot;--decompress&quot;, action=&quot;store_true&quot;,
+                        help=&quot;act like gunzip instead of gzip&quot;)
+
+    parser.add_argument(&quot;args&quot;, nargs=&quot;*&quot;, default=[&quot;-&quot;], metavar='file')
+    args = parser.parse_args()
+
+    compresslevel = _COMPRESS_LEVEL_TRADEOFF
+    if args.fast:
+        compresslevel = _COMPRESS_LEVEL_FAST
+    elif args.best:
+        compresslevel = _COMPRESS_LEVEL_BEST
+
+    for arg in args.args:
+        if args.decompress:
+            if arg == &quot;-&quot;:
+                f = GzipFile(filename=&quot;&quot;, mode=&quot;rb&quot;, fileobj=sys.stdin.buffer)
+                g = sys.stdout.buffer
+            else:
+                if arg[-3:] != &quot;.gz&quot;:
+                    sys.exit(f&quot;filename doesn't end in .gz: {arg!r}&quot;)
+                f = open(arg, &quot;rb&quot;)
+                g = builtins.open(arg[:-3], &quot;wb&quot;)
+        else:
+            if arg == &quot;-&quot;:
+                f = sys.stdin.buffer
+                g = GzipFile(filename=&quot;&quot;, mode=&quot;wb&quot;, fileobj=sys.stdout.buffer,
+                             compresslevel=compresslevel)
+            else:
+                f = builtins.open(arg, &quot;rb&quot;)
+                g = open(arg + &quot;.gz&quot;, &quot;wb&quot;)
+        while True:
+            chunk = f.read(io.DEFAULT_BUFFER_SIZE)
+            if not chunk:
+                break
+            g.write(chunk)
+        if g is not sys.stdout.buffer:
+            g.close()
+        if f is not sys.stdin.buffer:
+            f.close()
+
+if __name__ == '__main__':
+    main()
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

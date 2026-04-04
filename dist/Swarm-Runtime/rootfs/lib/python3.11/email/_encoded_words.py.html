@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>_encoded_words.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot; Routines for manipulating RFC2047 encoded words.
+
+This is currently a package-private API, but will be considered for promotion
+to a public API if there is demand.
+
+&quot;&quot;&quot;
+
+# An ecoded word looks like this:
+#
+#        =?charset[*lang]?cte?encoded_string?=
+#
+# for more information about charset see the charset module.  Here it is one
+# of the preferred MIME charset names (hopefully; you never know when parsing).
+# cte (Content Transfer Encoding) is either 'q' or 'b' (ignoring case).  In
+# theory other letters could be used for other encodings, but in practice this
+# (almost?) never happens.  There could be a public API for adding entries
+# to the CTE tables, but YAGNI for now.  'q' is Quoted Printable, 'b' is
+# Base64.  The meaning of encoded_string should be obvious.  'lang' is optional
+# as indicated by the brackets (they are not part of the syntax) but is almost
+# never encountered in practice.
+#
+# The general interface for a CTE decoder is that it takes the encoded_string
+# as its argument, and returns a tuple (cte_decoded_string, defects).  The
+# cte_decoded_string is the original binary that was encoded using the
+# specified cte.  'defects' is a list of MessageDefect instances indicating any
+# problems encountered during conversion.  'charset' and 'lang' are the
+# corresponding strings extracted from the EW, case preserved.
+#
+# The general interface for a CTE encoder is that it takes a binary sequence
+# as input and returns the cte_encoded_string, which is an ascii-only string.
+#
+# Each decoder must also supply a length function that takes the binary
+# sequence as its argument and returns the length of the resulting encoded
+# string.
+#
+# The main API functions for the module are decode, which calls the decoder
+# referenced by the cte specifier, and encode, which adds the appropriate
+# RFC 2047 &quot;chrome&quot; to the encoded string, and can optionally automatically
+# select the shortest possible encoding.  See their docstrings below for
+# details.
+
+import re
+import base64
+import binascii
+import functools
+from string import ascii_letters, digits
+from email import errors
+
+__all__ = ['decode_q',
+           'encode_q',
+           'decode_b',
+           'encode_b',
+           'len_q',
+           'len_b',
+           'decode',
+           'encode',
+           ]
+
+#
+# Quoted Printable
+#
+
+# regex based decoder.
+_q_byte_subber = functools.partial(re.compile(br'=([a-fA-F0-9]{2})').sub,
+        lambda m: bytes.fromhex(m.group(1).decode()))
+
+def decode_q(encoded):
+    encoded = encoded.replace(b'_', b' ')
+    return _q_byte_subber(encoded), []
+
+
+# dict mapping bytes to their encoded form
+class _QByteMap(dict):
+
+    safe = b'-!*+/' + ascii_letters.encode('ascii') + digits.encode('ascii')
+
+    def __missing__(self, key):
+        if key in self.safe:
+            self[key] = chr(key)
+        else:
+            self[key] = &quot;={:02X}&quot;.format(key)
+        return self[key]
+
+_q_byte_map = _QByteMap()
+
+# In headers spaces are mapped to '_'.
+_q_byte_map[ord(' ')] = '_'
+
+def encode_q(bstring):
+    return ''.join(_q_byte_map[x] for x in bstring)
+
+def len_q(bstring):
+    return sum(len(_q_byte_map[x]) for x in bstring)
+
+
+#
+# Base64
+#
+
+def decode_b(encoded):
+    # First try encoding with validate=True, fixing the padding if needed.
+    # This will succeed only if encoded includes no invalid characters.
+    pad_err = len(encoded) % 4
+    missing_padding = b'==='[:4-pad_err] if pad_err else b''
+    try:
+        return (
+            base64.b64decode(encoded + missing_padding, validate=True),
+            [errors.InvalidBase64PaddingDefect()] if pad_err else [],
+        )
+    except binascii.Error:
+        # Since we had correct padding, this is likely an invalid char error.
+        #
+        # The non-alphabet characters are ignored as far as padding
+        # goes, but we don't know how many there are.  So try without adding
+        # padding to see if it works.
+        try:
+            return (
+                base64.b64decode(encoded, validate=False),
+                [errors.InvalidBase64CharactersDefect()],
+            )
+        except binascii.Error:
+            # Add as much padding as could possibly be necessary (extra padding
+            # is ignored).
+            try:
+                return (
+                    base64.b64decode(encoded + b'==', validate=False),
+                    [errors.InvalidBase64CharactersDefect(),
+                     errors.InvalidBase64PaddingDefect()],
+                )
+            except binascii.Error:
+                # This only happens when the encoded string's length is 1 more
+                # than a multiple of 4, which is invalid.
+                #
+                # bpo-27397: Just return the encoded string since there's no
+                # way to decode.
+                return encoded, [errors.InvalidBase64LengthDefect()]
+
+def encode_b(bstring):
+    return base64.b64encode(bstring).decode('ascii')
+
+def len_b(bstring):
+    groups_of_3, leftover = divmod(len(bstring), 3)
+    # 4 bytes out for each 3 bytes (or nonzero fraction thereof) in.
+    return groups_of_3 * 4 + (4 if leftover else 0)
+
+
+_cte_decoders = {
+    'q': decode_q,
+    'b': decode_b,
+    }
+
+def decode(ew):
+    &quot;&quot;&quot;Decode encoded word and return (string, charset, lang, defects) tuple.
+
+    An RFC 2047/2243 encoded word has the form:
+
+        =?charset*lang?cte?encoded_string?=
+
+    where '*lang' may be omitted but the other parts may not be.
+
+    This function expects exactly such a string (that is, it does not check the
+    syntax and may raise errors if the string is not well formed), and returns
+    the encoded_string decoded first from its Content Transfer Encoding and
+    then from the resulting bytes into unicode using the specified charset.  If
+    the cte-decoded string does not successfully decode using the specified
+    character set, a defect is added to the defects list and the unknown octets
+    are replaced by the unicode 'unknown' character \\uFDFF.
+
+    The specified charset and language are returned.  The default for language,
+    which is rarely if ever encountered, is the empty string.
+
+    &quot;&quot;&quot;
+    _, charset, cte, cte_string, _ = ew.split('?')
+    charset, _, lang = charset.partition('*')
+    cte = cte.lower()
+    # Recover the original bytes and do CTE decoding.
+    bstring = cte_string.encode('ascii', 'surrogateescape')
+    bstring, defects = _cte_decoders[cte](bstring)
+    # Turn the CTE decoded bytes into unicode.
+    try:
+        string = bstring.decode(charset)
+    except UnicodeDecodeError:
+        defects.append(errors.UndecodableBytesDefect(&quot;Encoded word &quot;
+            f&quot;contains bytes not decodable using {charset!r} charset&quot;))
+        string = bstring.decode(charset, 'surrogateescape')
+    except (LookupError, UnicodeEncodeError):
+        string = bstring.decode('ascii', 'surrogateescape')
+        if charset.lower() != 'unknown-8bit':
+            defects.append(errors.CharsetError(f&quot;Unknown charset {charset!r} &quot;
+                f&quot;in encoded word; decoded as unknown bytes&quot;))
+    return string, charset, lang, defects
+
+
+_cte_encoders = {
+    'q': encode_q,
+    'b': encode_b,
+    }
+
+_cte_encode_length = {
+    'q': len_q,
+    'b': len_b,
+    }
+
+def encode(string, charset='utf-8', encoding=None, lang=''):
+    &quot;&quot;&quot;Encode string using the CTE encoding that produces the shorter result.
+
+    Produces an RFC 2047/2243 encoded word of the form:
+
+        =?charset*lang?cte?encoded_string?=
+
+    where '*lang' is omitted unless the 'lang' parameter is given a value.
+    Optional argument charset (defaults to utf-8) specifies the charset to use
+    to encode the string to binary before CTE encoding it.  Optional argument
+    'encoding' is the cte specifier for the encoding that should be used ('q'
+    or 'b'); if it is None (the default) the encoding which produces the
+    shortest encoded sequence is used, except that 'q' is preferred if it is up
+    to five characters longer.  Optional argument 'lang' (default '') gives the
+    RFC 2243 language string to specify in the encoded word.
+
+    &quot;&quot;&quot;
+    if charset == 'unknown-8bit':
+        bstring = string.encode('ascii', 'surrogateescape')
+    else:
+        bstring = string.encode(charset)
+    if encoding is None:
+        qlen = _cte_encode_length['q'](bstring)
+        blen = _cte_encode_length['b'](bstring)
+        # Bias toward q.  5 is arbitrary.
+        encoding = 'q' if qlen - blen &lt; 5 else 'b'
+    encoded = _cte_encoders[encoding](bstring)
+    if lang:
+        lang = '*' + lang
+    return &quot;=?{}{}?{}?{}?=&quot;.format(charset, lang, encoding, encoded)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

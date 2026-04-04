@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHASE11_STAGE1_IMPLEMENTATION_PLAN.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <h1>Phase 11 Stage 1: Modular Compilation Pipeline - Implementation Plan</h1>
+<h2>Current Architecture Analysis</h2>
+<h3>Existing Compiler Structure</h3>
+<p>The SynQ compiler currently has:</p>
+<ol>
+<li><strong>Main Entry Point</strong> (<code>main.cpp</code>) - CLI interface with basic flags</li>
+<li><strong>Runtime</strong> (<code>runtime.h/cpp</code>) - Instruction execution engine</li>
+<li><strong>Exporter</strong> - Converts code to various formats</li>
+<li><strong>Plugin System</strong> - Dynamic plugin loading</li>
+<li><strong>Multiple Backends</strong> - x86, WASM, Qiskit, SynQVM</li>
+<li><strong>Parser</strong> - Basic parsing logic</li>
+<li><strong>Codegen</strong> - Code generation backend</li>
+</ol>
+<h3>Current Compilation Flow</h3>
+<pre><code>Source Code (.synq)
+    ↓
+Parser (parser.cpp)
+    ↓
+AST (ast.h/cpp)
+    ↓
+Codegen (codegen.cpp)
+    ↓
+Backend-specific code generation
+    ↓
+Output (x86, WASM, etc.)
+</code></pre>
+<h3>Issues with Current Architecture</h3>
+<ol>
+<li><strong>Monolithic Pipeline</strong> - All stages run sequentially without intermediate caching</li>
+<li><strong>No Dependency Tracking</strong> - Cannot determine which files changed</li>
+<li><strong>No Serialization</strong> - Cannot cache intermediate representations</li>
+<li><strong>Single-threaded</strong> - No parallelization support</li>
+<li><strong>No Incremental Compilation</strong> - Must recompile everything on each change</li>
+</ol>
+<hr />
+<h2>Phase 11 Stage 1: Modular Pipeline Architecture</h2>
+<h3>Target Architecture</h3>
+<pre><code>Source Code (.synq)
+    ↓
+┌─────────────────────────────────────────────────┐
+│ Stage 1: Lexical Analysis                       │
+│ - Tokenization                                  │
+│ - Syntax validation                             │
+│ Output: TokenStream (serializable)              │
+└─────────────────────────────────────────────────┘
+    ↓ [Cache: tokens.cache]
+┌─────────────────────────────────────────────────┐
+│ Stage 2: Parsing                                │
+│ - Build Abstract Syntax Tree (AST)              │
+│ - Syntax error detection                        │
+│ Output: AST (serializable)                      │
+└─────────────────────────────────────────────────┘
+    ↓ [Cache: ast.cache]
+┌─────────────────────────────────────────────────┐
+│ Stage 3: Semantic Analysis                      │
+│ - Type checking                                 │
+│ - Symbol resolution                             │
+│ - Scope analysis                                │
+│ Output: Typed AST (serializable)                │
+└─────────────────────────────────────────────────┘
+    ↓ [Cache: typed_ast.cache]
+┌─────────────────────────────────────────────────┐
+│ Stage 4: Optimization                           │
+│ - Dead code elimination                         │
+│ - Constant folding                              │
+│ - Loop optimization                             │
+│ Output: Optimized IR (serializable)             │
+└─────────────────────────────────────────────────┘
+    ↓ [Cache: optimized_ir.cache]
+┌─────────────────────────────────────────────────┐
+│ Stage 5: Code Generation                        │
+│ - Convert to LLVM IR                            │
+│ - Backend-specific generation                   │
+│ Output: LLVM IR (serializable)                  │
+└─────────────────────────────────────────────────┘
+    ↓ [Cache: llvm_ir.cache]
+┌─────────────────────────────────────────────────┐
+│ Stage 6: Backend Compilation                    │
+│ - LLVM optimization passes                      │
+│ - Machine code generation                       │
+│ Output: Native code / WASM / etc.               │
+└─────────────────────────────────────────────────┘
+    ↓
+Final Output
+</code></pre>
+<h3>Key Benefits</h3>
+<ol>
+<li><strong>Caching</strong> - Each stage output can be cached</li>
+<li><strong>Dependency Tracking</strong> - Know which files depend on which</li>
+<li><strong>Incremental Compilation</strong> - Only recompile changed files + dependents</li>
+<li><strong>Parallelization</strong> - Independent files can compile in parallel</li>
+<li><strong>Debugging</strong> - Inspect intermediate representations</li>
+<li><strong>Extensibility</strong> - Easy to add new stages or backends</li>
+</ol>
+<hr />
+<h2>Implementation Tasks</h2>
+<h3>Task 1: Create Serializable Intermediate Representations</h3>
+<p><strong>Files to Create:</strong></p>
+<ul>
+<li><code>compiler/ir/token_stream.h/cpp</code> - Tokenized source</li>
+<li><code>compiler/ir/ast_ir.h/cpp</code> - Abstract Syntax Tree</li>
+<li><code>compiler/ir/typed_ast_ir.h/cpp</code> - Type-checked AST</li>
+<li><code>compiler/ir/optimized_ir.h/cpp</code> - Optimized intermediate representation</li>
+<li><code>compiler/ir/llvm_ir_wrapper.h/cpp</code> - LLVM IR wrapper</li>
+</ul>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li>All IR types inherit from <code>SerializableIR</code> base class</li>
+<li>Implement <code>serialize()</code> and <code>deserialize()</code> methods</li>
+<li>Use JSON for serialization format</li>
+<li>Include metadata (timestamps, file hashes, dependencies)</li>
+</ul>
+<p><strong>Example Structure:</strong></p>
+<pre><code class="language-cpp">// compiler/ir/serializable_ir.h
+class SerializableIR {
+public:
+    virtual ~SerializableIR() = default;
+    virtual std::string serialize() const = 0;
+    virtual void deserialize(const std::string&amp; data) = 0;
+    
+    std::string file_path;
+    std::string file_hash;
+    std::vector&lt;std::string&gt; dependencies;
+    uint64_t timestamp;
+};
+
+// compiler/ir/token_stream.h
+class TokenStream : public SerializableIR {
+public:
+    struct Token {
+        std::string type;
+        std::string value;
+        int line, column;
+    };
+    
+    std::vector&lt;Token&gt; tokens;
+    
+    std::string serialize() const override;
+    void deserialize(const std::string&amp; data) override;
+};
+</code></pre>
+<h3>Task 2: Create Compilation Pipeline Framework</h3>
+<p><strong>Files to Create:</strong></p>
+<ul>
+<li><code>compiler/pipeline/compilation_stage.h</code> - Base stage interface</li>
+<li><code>compiler/pipeline/pipeline.h/cpp</code> - Pipeline orchestrator</li>
+<li><code>compiler/pipeline/stage_lexer.h/cpp</code> - Lexical analysis stage</li>
+<li><code>compiler/pipeline/stage_parser.h/cpp</code> - Parsing stage</li>
+<li><code>compiler/pipeline/stage_semantic.h/cpp</code> - Semantic analysis stage</li>
+<li><code>compiler/pipeline/stage_optimizer.h/cpp</code> - Optimization stage</li>
+<li><code>compiler/pipeline/stage_codegen.h/cpp</code> - Code generation stage</li>
+</ul>
+<p><strong>Pipeline Interface:</strong></p>
+<pre><code class="language-cpp">// compiler/pipeline/compilation_stage.h
+class CompilationStage {
+public:
+    virtual ~CompilationStage() = default;
+    
+    virtual std::string name() const = 0;
+    virtual std::shared_ptr&lt;SerializableIR&gt; execute(
+        const std::shared_ptr&lt;SerializableIR&gt;&amp; input
+    ) = 0;
+};
+
+// compiler/pipeline/pipeline.h
+class CompilationPipeline {
+public:
+    void add_stage(std::shared_ptr&lt;CompilationStage&gt; stage);
+    std::shared_ptr&lt;SerializableIR&gt; compile(
+        const std::string&amp; source_code
+    );
+    
+private:
+    std::vector&lt;std::shared_ptr&lt;CompilationStage&gt;&gt; stages;
+};
+</code></pre>
+<h3>Task 3: Implement Dependency Tracking</h3>
+<p><strong>Files to Create:</strong></p>
+<ul>
+<li><code>compiler/dependency/dependency_graph.h/cpp</code> - Dependency tracking</li>
+<li><code>compiler/dependency/file_hasher.h/cpp</code> - File change detection</li>
+<li><code>compiler/cache/compilation_cache.h/cpp</code> - IR caching</li>
+</ul>
+<p><strong>Key Features:</strong></p>
+<pre><code class="language-cpp">// compiler/dependency/dependency_graph.h
+class DependencyGraph {
+public:
+    void add_dependency(const std::string&amp; file, 
+                       const std::string&amp; depends_on);
+    std::vector&lt;std::string&gt; get_dependents(const std::string&amp; file);
+    std::vector&lt;std::string&gt; get_changed_files(
+        const std::vector&lt;std::string&gt;&amp; all_files
+    );
+};
+
+// compiler/cache/compilation_cache.h
+class CompilationCache {
+public:
+    bool has_cached(const std::string&amp; file);
+    std::shared_ptr&lt;SerializableIR&gt; get_cached(const std::string&amp; file);
+    void cache(const std::string&amp; file, 
+              const std::shared_ptr&lt;SerializableIR&gt;&amp; ir);
+    
+private:
+    std::unordered_map&lt;std::string, std::shared_ptr&lt;SerializableIR&gt;&gt; cache;
+    std::string cache_dir = &quot;.synq_cache&quot;;
+};
+</code></pre>
+<h3>Task 4: Implement Incremental Compilation</h3>
+<p><strong>Files to Create:</strong></p>
+<ul>
+<li><code>compiler/incremental/incremental_compiler.h/cpp</code> - Incremental compilation logic</li>
+</ul>
+<p><strong>Key Features:</strong></p>
+<pre><code class="language-cpp">// compiler/incremental/incremental_compiler.h
+class IncrementalCompiler {
+public:
+    void compile(const std::vector&lt;std::string&gt;&amp; files);
+    
+private:
+    DependencyGraph dependency_graph;
+    CompilationCache cache;
+    CompilationPipeline pipeline;
+    
+    std::vector&lt;std::string&gt; get_files_to_recompile(
+        const std::vector&lt;std::string&gt;&amp; files
+    );
+};
+</code></pre>
+<p><strong>Algorithm:</strong></p>
+<pre><code>1. Load dependency graph from cache
+2. For each file:
+   a. Compute file hash
+   b. Compare with cached hash
+   c. If changed, mark for recompilation
+3. For each changed file:
+   a. Get all dependents
+   b. Mark dependents for recompilation
+4. Compile only marked files
+5. Update cache
+</code></pre>
+<h3>Task 5: Integrate with Existing Compiler</h3>
+<p><strong>Files to Modify:</strong></p>
+<ul>
+<li><code>src/main.cpp</code> - Update CLI to use new pipeline</li>
+<li><code>src/compiler/runtime.h/cpp</code> - Update to use modular pipeline</li>
+<li><code>src/compiler/exporter.h/cpp</code> - Update to use new IR</li>
+</ul>
+<p><strong>Integration Points:</strong></p>
+<pre><code class="language-cpp">// Updated main.cpp
+int main(int argc, char** argv) {
+    // ... argument parsing ...
+    
+    // Create incremental compiler
+    IncrementalCompiler compiler;
+    
+    // Compile files
+    compiler.compile({filepath});
+    
+    // Get final IR
+    auto final_ir = compiler.get_result();
+    
+    // Execute or export as before
+    if (do_run) {
+        Runtime runtime;
+        runtime.execute(final_ir);
+    }
+    
+    return 0;
+}
+</code></pre>
+<hr />
+<h2>Implementation Timeline</h2>
+<p>| Task | Duration | Dependencies |
+|------|----------|--------------|
+| Task 1: Serializable IRs | 1 week | None |
+| Task 2: Pipeline Framework | 1 week | Task 1 |
+| Task 3: Dependency Tracking | 1 week | Task 2 |
+| Task 4: Incremental Compilation | 1 week | Task 3 |
+| Task 5: Integration | 1 week | Task 4 |
+| Testing &amp; Optimization | 1 week | All tasks |</p>
+<p><strong>Total: 6 weeks</strong></p>
+<hr />
+<h2>Success Criteria</h2>
+<p>Phase 11 Stage 1 is complete when:</p>
+<ol>
+<li>✅ All IR types are serializable and deserializable</li>
+<li>✅ Compilation pipeline executes all 6 stages</li>
+<li>✅ Dependency graph accurately tracks file dependencies</li>
+<li>✅ Incremental compilation works correctly</li>
+<li>✅ Cache reduces rebuild time by 10x for single-file changes</li>
+<li>✅ All existing tests pass</li>
+<li>✅ Comprehensive test suite for new features</li>
+</ol>
+<hr />
+<h2>Next Stages (After Stage 1)</h2>
+<p><strong>Stage 2: Parallel Compilation</strong> - Use modular pipeline to compile independent files in parallel
+<strong>Stage 3: LLVM Backend Integration</strong> - Replace current codegen with LLVM IR
+<strong>Stage 4: Advanced Optimizations</strong> - Implement LLVM optimization passes
+<strong>Stage 5: JIT Compilation</strong> - Profile and compile hot paths at runtime</p>
+<hr />
+<h2>Conclusion</h2>
+<p>Phase 11 Stage 1 establishes the modular compilation pipeline foundation that enables incremental compilation, parallel compilation, and advanced optimizations in subsequent stages. This is the critical first step for achieving the Phase 11 performance goals.</p>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

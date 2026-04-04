@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>util.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">import os
+import shutil
+import subprocess
+import sys
+
+# find_library(name) returns the pathname of a library, or None.
+if os.name == &quot;nt&quot;:
+
+    def _get_build_version():
+        &quot;&quot;&quot;Return the version of MSVC that was used to build Python.
+
+        For Python 2.3 and up, the version number is included in
+        sys.version.  For earlier versions, assume the compiler is MSVC 6.
+        &quot;&quot;&quot;
+        # This function was copied from Lib/distutils/msvccompiler.py
+        prefix = &quot;MSC v.&quot;
+        i = sys.version.find(prefix)
+        if i == -1:
+            return 6
+        i = i + len(prefix)
+        s, rest = sys.version[i:].split(&quot; &quot;, 1)
+        majorVersion = int(s[:-2]) - 6
+        if majorVersion &gt;= 13:
+            majorVersion += 1
+        minorVersion = int(s[2:3]) / 10.0
+        # I don't think paths are affected by minor version in version 6
+        if majorVersion == 6:
+            minorVersion = 0
+        if majorVersion &gt;= 6:
+            return majorVersion + minorVersion
+        # else we don't know what version of the compiler this is
+        return None
+
+    def find_msvcrt():
+        &quot;&quot;&quot;Return the name of the VC runtime dll&quot;&quot;&quot;
+        version = _get_build_version()
+        if version is None:
+            # better be safe than sorry
+            return None
+        if version &lt;= 6:
+            clibname = 'msvcrt'
+        elif version &lt;= 13:
+            clibname = 'msvcr%d' % (version * 10)
+        else:
+            # CRT is no longer directly loadable. See issue23606 for the
+            # discussion about alternative approaches.
+            return None
+
+        # If python was built with in debug mode
+        import importlib.machinery
+        if '_d.pyd' in importlib.machinery.EXTENSION_SUFFIXES:
+            clibname += 'd'
+        return clibname+'.dll'
+
+    def find_library(name):
+        if name in ('c', 'm'):
+            return find_msvcrt()
+        # See MSDN for the REAL search order.
+        for directory in os.environ['PATH'].split(os.pathsep):
+            fname = os.path.join(directory, name)
+            if os.path.isfile(fname):
+                return fname
+            if fname.lower().endswith(&quot;.dll&quot;):
+                continue
+            fname = fname + &quot;.dll&quot;
+            if os.path.isfile(fname):
+                return fname
+        return None
+
+elif os.name == &quot;posix&quot; and sys.platform == &quot;darwin&quot;:
+    from ctypes.macholib.dyld import dyld_find as _dyld_find
+    def find_library(name):
+        possible = ['lib%s.dylib' % name,
+                    '%s.dylib' % name,
+                    '%s.framework/%s' % (name, name)]
+        for name in possible:
+            try:
+                return _dyld_find(name)
+            except ValueError:
+                continue
+        return None
+
+elif sys.platform.startswith(&quot;aix&quot;):
+    # AIX has two styles of storing shared libraries
+    # GNU auto_tools refer to these as svr4 and aix
+    # svr4 (System V Release 4) is a regular file, often with .so as suffix
+    # AIX style uses an archive (suffix .a) with members (e.g., shr.o, libssl.so)
+    # see issue#26439 and _aix.py for more details
+
+    from ctypes._aix import find_library
+
+elif os.name == &quot;posix&quot;:
+    # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
+    import re, tempfile
+
+    def _is_elf(filename):
+        &quot;Return True if the given file is an ELF file&quot;
+        elf_header = b'\x7fELF'
+        with open(filename, 'br') as thefile:
+            return thefile.read(4) == elf_header
+
+    def _findLib_gcc(name):
+        # Run GCC's linker with the -t (aka --trace) option and examine the
+        # library name it prints out. The GCC command will fail because we
+        # haven't supplied a proper program with main(), but that does not
+        # matter.
+        expr = os.fsencode(r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name))
+
+        c_compiler = shutil.which('gcc')
+        if not c_compiler:
+            c_compiler = shutil.which('cc')
+        if not c_compiler:
+            # No C compiler available, give up
+            return None
+
+        temp = tempfile.NamedTemporaryFile()
+        try:
+            args = [c_compiler, '-Wl,-t', '-o', temp.name, '-l' + name]
+
+            env = dict(os.environ)
+            env['LC_ALL'] = 'C'
+            env['LANG'] = 'C'
+            try:
+                proc = subprocess.Popen(args,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        env=env)
+            except OSError:  # E.g. bad executable
+                return None
+            with proc:
+                trace = proc.stdout.read()
+        finally:
+            try:
+                temp.close()
+            except FileNotFoundError:
+                # Raised if the file was already removed, which is the normal
+                # behaviour of GCC if linking fails
+                pass
+        res = re.findall(expr, trace)
+        if not res:
+            return None
+
+        for file in res:
+            # Check if the given file is an elf file: gcc can report
+            # some files that are linker scripts and not actual
+            # shared objects. See bpo-41976 for more details
+            if not _is_elf(file):
+                continue
+            return os.fsdecode(file)
+
+
+    if sys.platform == &quot;sunos5&quot;:
+        # use /usr/ccs/bin/dump on solaris
+        def _get_soname(f):
+            if not f:
+                return None
+
+            try:
+                proc = subprocess.Popen((&quot;/usr/ccs/bin/dump&quot;, &quot;-Lpv&quot;, f),
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL)
+            except OSError:  # E.g. command not found
+                return None
+            with proc:
+                data = proc.stdout.read()
+            res = re.search(br'\[.*\]\sSONAME\s+([^\s]+)', data)
+            if not res:
+                return None
+            return os.fsdecode(res.group(1))
+    else:
+        def _get_soname(f):
+            # assuming GNU binutils / ELF
+            if not f:
+                return None
+            objdump = shutil.which('objdump')
+            if not objdump:
+                # objdump is not available, give up
+                return None
+
+            try:
+                proc = subprocess.Popen((objdump, '-p', '-j', '.dynamic', f),
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL)
+            except OSError:  # E.g. bad executable
+                return None
+            with proc:
+                dump = proc.stdout.read()
+            res = re.search(br'\sSONAME\s+([^\s]+)', dump)
+            if not res:
+                return None
+            return os.fsdecode(res.group(1))
+
+    if sys.platform.startswith((&quot;freebsd&quot;, &quot;openbsd&quot;, &quot;dragonfly&quot;)):
+
+        def _num_version(libname):
+            # &quot;libxyz.so.MAJOR.MINOR&quot; =&gt; [ MAJOR, MINOR ]
+            parts = libname.split(b&quot;.&quot;)
+            nums = []
+            try:
+                while parts:
+                    nums.insert(0, int(parts.pop()))
+            except ValueError:
+                pass
+            return nums or [sys.maxsize]
+
+        def find_library(name):
+            ename = re.escape(name)
+            expr = r':-l%s\.\S+ =&gt; \S*/(lib%s\.\S+)' % (ename, ename)
+            expr = os.fsencode(expr)
+
+            try:
+                proc = subprocess.Popen(('/sbin/ldconfig', '-r'),
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL)
+            except OSError:  # E.g. command not found
+                data = b''
+            else:
+                with proc:
+                    data = proc.stdout.read()
+
+            res = re.findall(expr, data)
+            if not res:
+                return _get_soname(_findLib_gcc(name))
+            res.sort(key=_num_version)
+            return os.fsdecode(res[-1])
+
+    elif sys.platform == &quot;sunos5&quot;:
+
+        def _findLib_crle(name, is64):
+            if not os.path.exists('/usr/bin/crle'):
+                return None
+
+            env = dict(os.environ)
+            env['LC_ALL'] = 'C'
+
+            if is64:
+                args = ('/usr/bin/crle', '-64')
+            else:
+                args = ('/usr/bin/crle',)
+
+            paths = None
+            try:
+                proc = subprocess.Popen(args,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL,
+                                        env=env)
+            except OSError:  # E.g. bad executable
+                return None
+            with proc:
+                for line in proc.stdout:
+                    line = line.strip()
+                    if line.startswith(b'Default Library Path (ELF):'):
+                        paths = os.fsdecode(line).split()[4]
+
+            if not paths:
+                return None
+
+            for dir in paths.split(&quot;:&quot;):
+                libfile = os.path.join(dir, &quot;lib%s.so&quot; % name)
+                if os.path.exists(libfile):
+                    return libfile
+
+            return None
+
+        def find_library(name, is64 = False):
+            return _get_soname(_findLib_crle(name, is64) or _findLib_gcc(name))
+
+    else:
+
+        def _findSoname_ldconfig(name):
+            import struct
+            if struct.calcsize('l') == 4:
+                machine = os.uname().machine + '-32'
+            else:
+                machine = os.uname().machine + '-64'
+            mach_map = {
+                'x86_64-64': 'libc6,x86-64',
+                'ppc64-64': 'libc6,64bit',
+                'sparc64-64': 'libc6,64bit',
+                's390x-64': 'libc6,64bit',
+                'ia64-64': 'libc6,IA-64',
+                }
+            abi_type = mach_map.get(machine, 'libc6')
+
+            # XXX assuming GLIBC's ldconfig (with option -p)
+            regex = r'\s+(lib%s\.[^\s]+)\s+\(%s'
+            regex = os.fsencode(regex % (re.escape(name), abi_type))
+            try:
+                with subprocess.Popen(['/sbin/ldconfig', '-p'],
+                                      stdin=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL,
+                                      stdout=subprocess.PIPE,
+                                      env={'LC_ALL': 'C', 'LANG': 'C'}) as p:
+                    res = re.search(regex, p.stdout.read())
+                    if res:
+                        return os.fsdecode(res.group(1))
+            except OSError:
+                pass
+
+        def _findLib_ld(name):
+            # See issue #9998 for why this is needed
+            expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
+            cmd = ['ld', '-t']
+            libpath = os.environ.get('LD_LIBRARY_PATH')
+            if libpath:
+                for d in libpath.split(':'):
+                    cmd.extend(['-L', d])
+            cmd.extend(['-o', os.devnull, '-l%s' % name])
+            result = None
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     universal_newlines=True)
+                out, _ = p.communicate()
+                res = re.findall(expr, os.fsdecode(out))
+                for file in res:
+                    # Check if the given file is an elf file: gcc can report
+                    # some files that are linker scripts and not actual
+                    # shared objects. See bpo-41976 for more details
+                    if not _is_elf(file):
+                        continue
+                    return os.fsdecode(file)
+            except Exception:
+                pass  # result will be None
+            return result
+
+        def find_library(name):
+            # See issue #9998
+            return _findSoname_ldconfig(name) or \
+                   _get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))
+
+################################################################
+# test code
+
+def test():
+    from ctypes import cdll
+    if os.name == &quot;nt&quot;:
+        print(cdll.msvcrt)
+        print(cdll.load(&quot;msvcrt&quot;))
+        print(find_library(&quot;msvcrt&quot;))
+
+    if os.name == &quot;posix&quot;:
+        # find and load_version
+        print(find_library(&quot;m&quot;))
+        print(find_library(&quot;c&quot;))
+        print(find_library(&quot;bz2&quot;))
+
+        # load
+        if sys.platform == &quot;darwin&quot;:
+            print(cdll.LoadLibrary(&quot;libm.dylib&quot;))
+            print(cdll.LoadLibrary(&quot;libcrypto.dylib&quot;))
+            print(cdll.LoadLibrary(&quot;libSystem.dylib&quot;))
+            print(cdll.LoadLibrary(&quot;System.framework/System&quot;))
+        # issue-26439 - fix broken test call for AIX
+        elif sys.platform.startswith(&quot;aix&quot;):
+            from ctypes import CDLL
+            if sys.maxsize &lt; 2**32:
+                print(f&quot;Using CDLL(name, os.RTLD_MEMBER): {CDLL('libc.a(shr.o)', os.RTLD_MEMBER)}&quot;)
+                print(f&quot;Using cdll.LoadLibrary(): {cdll.LoadLibrary('libc.a(shr.o)')}&quot;)
+                # librpm.so is only available as 32-bit shared library
+                print(find_library(&quot;rpm&quot;))
+                print(cdll.LoadLibrary(&quot;librpm.so&quot;))
+            else:
+                print(f&quot;Using CDLL(name, os.RTLD_MEMBER): {CDLL('libc.a(shr_64.o)', os.RTLD_MEMBER)}&quot;)
+                print(f&quot;Using cdll.LoadLibrary(): {cdll.LoadLibrary('libc.a(shr_64.o)')}&quot;)
+            print(f&quot;crypt\t:: {find_library('crypt')}&quot;)
+            print(f&quot;crypt\t:: {cdll.LoadLibrary(find_library('crypt'))}&quot;)
+            print(f&quot;crypto\t:: {find_library('crypto')}&quot;)
+            print(f&quot;crypto\t:: {cdll.LoadLibrary(find_library('crypto'))}&quot;)
+        else:
+            print(cdll.LoadLibrary(&quot;libm.so&quot;))
+            print(cdll.LoadLibrary(&quot;libcrypt.so&quot;))
+            print(find_library(&quot;crypt&quot;))
+
+if __name__ == &quot;__main__&quot;:
+    test()
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>abc.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;Abstract base classes related to import.&quot;&quot;&quot;
+from . import _bootstrap_external
+from . import machinery
+try:
+    import _frozen_importlib
+except ImportError as exc:
+    if exc.name != '_frozen_importlib':
+        raise
+    _frozen_importlib = None
+try:
+    import _frozen_importlib_external
+except ImportError:
+    _frozen_importlib_external = _bootstrap_external
+from ._abc import Loader
+import abc
+import warnings
+
+# for compatibility with Python 3.10
+from .resources.abc import ResourceReader, Traversable, TraversableResources
+
+
+__all__ = [
+    'Loader', 'Finder', 'MetaPathFinder', 'PathEntryFinder',
+    'ResourceLoader', 'InspectLoader', 'ExecutionLoader',
+    'FileLoader', 'SourceLoader',
+
+    # for compatibility with Python 3.10
+    'ResourceReader', 'Traversable', 'TraversableResources',
+]
+
+
+def _register(abstract_cls, *classes):
+    for cls in classes:
+        abstract_cls.register(cls)
+        if _frozen_importlib is not None:
+            try:
+                frozen_cls = getattr(_frozen_importlib, cls.__name__)
+            except AttributeError:
+                frozen_cls = getattr(_frozen_importlib_external, cls.__name__)
+            abstract_cls.register(frozen_cls)
+
+
+class Finder(metaclass=abc.ABCMeta):
+
+    &quot;&quot;&quot;Legacy abstract base class for import finders.
+
+    It may be subclassed for compatibility with legacy third party
+    reimplementations of the import system.  Otherwise, finder
+    implementations should derive from the more specific MetaPathFinder
+    or PathEntryFinder ABCs.
+
+    Deprecated since Python 3.3
+    &quot;&quot;&quot;
+
+    def __init__(self):
+        warnings.warn(&quot;the Finder ABC is deprecated and &quot;
+                       &quot;slated for removal in Python 3.12; use MetaPathFinder &quot;
+                       &quot;or PathEntryFinder instead&quot;,
+                       DeprecationWarning)
+
+    @abc.abstractmethod
+    def find_module(self, fullname, path=None):
+        &quot;&quot;&quot;An abstract method that should find a module.
+        The fullname is a str and the optional path is a str or None.
+        Returns a Loader object or None.
+        &quot;&quot;&quot;
+        warnings.warn(&quot;importlib.abc.Finder along with its find_module() &quot;
+                      &quot;method are deprecated and &quot;
+                       &quot;slated for removal in Python 3.12; use &quot;
+                       &quot;MetaPathFinder.find_spec() or &quot;
+                       &quot;PathEntryFinder.find_spec() instead&quot;,
+                       DeprecationWarning)
+
+
+class MetaPathFinder(metaclass=abc.ABCMeta):
+
+    &quot;&quot;&quot;Abstract base class for import finders on sys.meta_path.&quot;&quot;&quot;
+
+    # We don't define find_spec() here since that would break
+    # hasattr checks we do to support backward compatibility.
+
+    def find_module(self, fullname, path):
+        &quot;&quot;&quot;Return a loader for the module.
+
+        If no module is found, return None.  The fullname is a str and
+        the path is a list of strings or None.
+
+        This method is deprecated since Python 3.4 in favor of
+        finder.find_spec(). If find_spec() exists then backwards-compatible
+        functionality is provided for this method.
+
+        &quot;&quot;&quot;
+        warnings.warn(&quot;MetaPathFinder.find_module() is deprecated since Python &quot;
+                      &quot;3.4 in favor of MetaPathFinder.find_spec() and is &quot;
+                      &quot;slated for removal in Python 3.12&quot;,
+                      DeprecationWarning,
+                      stacklevel=2)
+        if not hasattr(self, 'find_spec'):
+            return None
+        found = self.find_spec(fullname, path)
+        return found.loader if found is not None else None
+
+    def invalidate_caches(self):
+        &quot;&quot;&quot;An optional method for clearing the finder's cache, if any.
+        This method is used by importlib.invalidate_caches().
+        &quot;&quot;&quot;
+
+_register(MetaPathFinder, machinery.BuiltinImporter, machinery.FrozenImporter,
+          machinery.PathFinder, machinery.WindowsRegistryFinder)
+
+
+class PathEntryFinder(metaclass=abc.ABCMeta):
+
+    &quot;&quot;&quot;Abstract base class for path entry finders used by PathFinder.&quot;&quot;&quot;
+
+    # We don't define find_spec() here since that would break
+    # hasattr checks we do to support backward compatibility.
+
+    def find_loader(self, fullname):
+        &quot;&quot;&quot;Return (loader, namespace portion) for the path entry.
+
+        The fullname is a str.  The namespace portion is a sequence of
+        path entries contributing to part of a namespace package. The
+        sequence may be empty.  If loader is not None, the portion will
+        be ignored.
+
+        The portion will be discarded if another path entry finder
+        locates the module as a normal module or package.
+
+        This method is deprecated since Python 3.4 in favor of
+        finder.find_spec(). If find_spec() is provided than backwards-compatible
+        functionality is provided.
+        &quot;&quot;&quot;
+        warnings.warn(&quot;PathEntryFinder.find_loader() is deprecated since Python &quot;
+                      &quot;3.4 in favor of PathEntryFinder.find_spec() &quot;
+                      &quot;(available since 3.4)&quot;,
+                      DeprecationWarning,
+                      stacklevel=2)
+        if not hasattr(self, 'find_spec'):
+            return None, []
+        found = self.find_spec(fullname)
+        if found is not None:
+            if not found.submodule_search_locations:
+                portions = []
+            else:
+                portions = found.submodule_search_locations
+            return found.loader, portions
+        else:
+            return None, []
+
+    find_module = _bootstrap_external._find_module_shim
+
+    def invalidate_caches(self):
+        &quot;&quot;&quot;An optional method for clearing the finder's cache, if any.
+        This method is used by PathFinder.invalidate_caches().
+        &quot;&quot;&quot;
+
+_register(PathEntryFinder, machinery.FileFinder)
+
+
+class ResourceLoader(Loader):
+
+    &quot;&quot;&quot;Abstract base class for loaders which can return data from their
+    back-end storage.
+
+    This ABC represents one of the optional protocols specified by PEP 302.
+
+    &quot;&quot;&quot;
+
+    @abc.abstractmethod
+    def get_data(self, path):
+        &quot;&quot;&quot;Abstract method which when implemented should return the bytes for
+        the specified path.  The path must be a str.&quot;&quot;&quot;
+        raise OSError
+
+
+class InspectLoader(Loader):
+
+    &quot;&quot;&quot;Abstract base class for loaders which support inspection about the
+    modules they can load.
+
+    This ABC represents one of the optional protocols specified by PEP 302.
+
+    &quot;&quot;&quot;
+
+    def is_package(self, fullname):
+        &quot;&quot;&quot;Optional method which when implemented should return whether the
+        module is a package.  The fullname is a str.  Returns a bool.
+
+        Raises ImportError if the module cannot be found.
+        &quot;&quot;&quot;
+        raise ImportError
+
+    def get_code(self, fullname):
+        &quot;&quot;&quot;Method which returns the code object for the module.
+
+        The fullname is a str.  Returns a types.CodeType if possible, else
+        returns None if a code object does not make sense
+        (e.g. built-in module). Raises ImportError if the module cannot be
+        found.
+        &quot;&quot;&quot;
+        source = self.get_source(fullname)
+        if source is None:
+            return None
+        return self.source_to_code(source)
+
+    @abc.abstractmethod
+    def get_source(self, fullname):
+        &quot;&quot;&quot;Abstract method which should return the source code for the
+        module.  The fullname is a str.  Returns a str.
+
+        Raises ImportError if the module cannot be found.
+        &quot;&quot;&quot;
+        raise ImportError
+
+    @staticmethod
+    def source_to_code(data, path='&lt;string&gt;'):
+        &quot;&quot;&quot;Compile 'data' into a code object.
+
+        The 'data' argument can be anything that compile() can handle. The'path'
+        argument should be where the data was retrieved (when applicable).&quot;&quot;&quot;
+        return compile(data, path, 'exec', dont_inherit=True)
+
+    exec_module = _bootstrap_external._LoaderBasics.exec_module
+    load_module = _bootstrap_external._LoaderBasics.load_module
+
+_register(InspectLoader, machinery.BuiltinImporter, machinery.FrozenImporter, machinery.NamespaceLoader)
+
+
+class ExecutionLoader(InspectLoader):
+
+    &quot;&quot;&quot;Abstract base class for loaders that wish to support the execution of
+    modules as scripts.
+
+    This ABC represents one of the optional protocols specified in PEP 302.
+
+    &quot;&quot;&quot;
+
+    @abc.abstractmethod
+    def get_filename(self, fullname):
+        &quot;&quot;&quot;Abstract method which should return the value that __file__ is to be
+        set to.
+
+        Raises ImportError if the module cannot be found.
+        &quot;&quot;&quot;
+        raise ImportError
+
+    def get_code(self, fullname):
+        &quot;&quot;&quot;Method to return the code object for fullname.
+
+        Should return None if not applicable (e.g. built-in module).
+        Raise ImportError if the module cannot be found.
+        &quot;&quot;&quot;
+        source = self.get_source(fullname)
+        if source is None:
+            return None
+        try:
+            path = self.get_filename(fullname)
+        except ImportError:
+            return self.source_to_code(source)
+        else:
+            return self.source_to_code(source, path)
+
+_register(ExecutionLoader, machinery.ExtensionFileLoader)
+
+
+class FileLoader(_bootstrap_external.FileLoader, ResourceLoader, ExecutionLoader):
+
+    &quot;&quot;&quot;Abstract base class partially implementing the ResourceLoader and
+    ExecutionLoader ABCs.&quot;&quot;&quot;
+
+_register(FileLoader, machinery.SourceFileLoader,
+            machinery.SourcelessFileLoader)
+
+
+class SourceLoader(_bootstrap_external.SourceLoader, ResourceLoader, ExecutionLoader):
+
+    &quot;&quot;&quot;Abstract base class for loading source code (and optionally any
+    corresponding bytecode).
+
+    To support loading from source code, the abstractmethods inherited from
+    ResourceLoader and ExecutionLoader need to be implemented. To also support
+    loading from bytecode, the optional methods specified directly by this ABC
+    is required.
+
+    Inherited abstractmethods not implemented in this ABC:
+
+        * ResourceLoader.get_data
+        * ExecutionLoader.get_filename
+
+    &quot;&quot;&quot;
+
+    def path_mtime(self, path):
+        &quot;&quot;&quot;Return the (int) modification time for the path (str).&quot;&quot;&quot;
+        if self.path_stats.__func__ is SourceLoader.path_stats:
+            raise OSError
+        return int(self.path_stats(path)['mtime'])
+
+    def path_stats(self, path):
+        &quot;&quot;&quot;Return a metadata dict for the source pointed to by the path (str).
+        Possible keys:
+        - 'mtime' (mandatory) is the numeric timestamp of last source
+          code modification;
+        - 'size' (optional) is the size in bytes of the source code.
+        &quot;&quot;&quot;
+        if self.path_mtime.__func__ is SourceLoader.path_mtime:
+            raise OSError
+        return {'mtime': self.path_mtime(path)}
+
+    def set_data(self, path, data):
+        &quot;&quot;&quot;Write the bytes to the path (if possible).
+
+        Accepts a str path and data as bytes.
+
+        Any needed intermediary directories are to be created. If for some
+        reason the file cannot be written because of permissions, fail
+        silently.
+        &quot;&quot;&quot;
+
+_register(SourceLoader, machinery.SourceFileLoader)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lib.rs</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-rs">use anyhow::{anyhow, Result};
+use sha2::{Digest, Sha256};
+use std::fs;
+use wasmi::*;
+use wasmi_wasi::WasiCtxBuilder;
+
+pub struct Judge {
+    engine: Engine,
+    linker: Linker&lt;wasmi_wasi::WasiCtx&gt;,
+}
+
+impl Judge {
+    pub fn new(_gas_limit: Option&lt;u64&gt;) -&gt; Result&lt;Self&gt; {
+        let mut config = Config::default();
+        config.consume_fuel(true);
+        let engine = Engine::new(&amp;config);
+        let linker = &lt;Linker&lt;wasmi_wasi::WasiCtx&gt;&gt;::new(&amp;engine);
+        Ok(Self { engine, linker })
+    }
+
+    pub fn execute(
+        &amp;mut self,
+        wasm_bytes: &amp;[u8],
+        dataset: &amp;[String],
+        polyglot_id: &amp;str,
+        state_path: &amp;str,
+    ) -&gt; Result&lt;(i32, String, Option&lt;Vec&lt;u8&gt;&gt;)&gt; {
+        let sandbox_dir = &quot;./rootfs/data&quot;;
+        fs::create_dir_all(sandbox_dir).map_err(|e| anyhow!(&quot;Failed to create data dir: {}&quot;, e))?;
+        fs::create_dir_all(&quot;./rootfs/lib&quot;).unwrap_or_default();
+
+        let module = Module::new(&amp;self.engine, wasm_bytes)
+            .map_err(|e| anyhow!(&quot;Module compilation error: {}&quot;, e))?;
+        let is_wasi_start = module.exports().any(|e| e.name() == &quot;_start&quot;);
+
+        // PHASE 13: Strict WASI Enforcement. Legacy memory injection mode has been eradicated.
+        if !is_wasi_start {
+            return Err(anyhow!(
+                &quot;No valid WASI _start entry point found. Legacy mode is deprecated.&quot;
+            ));
+        }
+
+        let joined_dataset = dataset.join(&quot;\n&quot;);
+        let mut wasi_args: Vec&lt;String&gt; = vec![&quot;swarm-wasm&quot;.to_string()];
+        let mut target_file = &quot;app.txt&quot;;
+
+        if polyglot_id == &quot;POLYGLOT:PYTHON&quot; {
+            target_file = &quot;app.py&quot;;
+            wasi_args = vec![
+                &quot;python&quot;.to_string(),
+                &quot;-B&quot;.to_string(),
+                &quot;-S&quot;.to_string(),
+                &quot;/data/app.py&quot;.to_string(),
+            ];
+        } else if polyglot_id == &quot;POLYGLOT:JS&quot; {
+            target_file = &quot;app.js&quot;;
+            wasi_args = vec![&quot;qjs&quot;.to_string(), &quot;/data/app.js&quot;.to_string()];
+        } else if polyglot_id == &quot;POLYGLOT:LUA&quot; {
+            target_file = &quot;app.lua&quot;;
+            wasi_args = vec![&quot;lua&quot;.to_string(), &quot;/data/app.lua&quot;.to_string()];
+        } else if polyglot_id == &quot;POLYGLOT:RUBY&quot; {
+            target_file = &quot;app.rb&quot;;
+            wasi_args = vec![&quot;ruby&quot;.to_string(), &quot;/data/app.rb&quot;.to_string()];
+        } else if polyglot_id == &quot;POLYGLOT:PHP&quot; {
+            target_file = &quot;app.php&quot;;
+            wasi_args = vec![&quot;php&quot;.to_string(), &quot;/data/app.php&quot;.to_string()];
+        } else if polyglot_id == &quot;POLYGLOT:SQLITE&quot; {
+            target_file = &quot;app.sql&quot;;
+            wasi_args = vec![
+                &quot;sqlite3&quot;.to_string(),
+                &quot;/data/swarm.db&quot;.to_string(),
+                &quot;.read /data/app.sql&quot;.to_string(),
+            ];
+        } else {
+            // Inject the JSON dataset directly into the WASI arguments for raw WebAssembly
+            wasi_args.extend_from_slice(dataset);
+        }
+
+        let app_path = format!(&quot;{}/{}&quot;, sandbox_dir, target_file);
+        fs::write(&amp;app_path, &amp;joined_dataset)
+            .map_err(|e| anyhow!(&quot;Failed to write script: {}&quot;, e))?;
+
+        // Open the secure ambient directory mapping the host's ./rootfs to the guest's /
+        let root_dir = cap_std::fs::Dir::open_ambient_dir(&quot;./rootfs&quot;, cap_std::ambient_authority())
+            .map_err(|e| anyhow!(&quot;Failed to open rootfs dir: {}&quot;, e))?;
+
+        // Derive the absolute path for the guest by stripping the host's relative mount point
+        let guest_state_path = state_path.replace(&quot;./rootfs&quot;, &quot;&quot;);
+
+        let mut builder = WasiCtxBuilder::new()
+            .inherit_stdout()
+            .inherit_stderr()
+            .args(&amp;wasi_args)
+            .map_err(|e| anyhow!(&quot;WASI args error: {}&quot;, e))?
+            .env(&quot;SWARM_STATE_FILE&quot;, &amp;guest_state_path)
+            .map_err(|e| anyhow!(&quot;WASI env error: {}&quot;, e))?;
+
+        if polyglot_id == &quot;POLYGLOT:PYTHON&quot; {
+            builder = builder
+                .env(&quot;PYTHONPATH&quot;, &quot;/python-wasi.zip&quot;)
+                .map_err(|e| anyhow!(&quot;Env error: {}&quot;, e))?
+                .env(&quot;PYTHONHOME&quot;, &quot;/&quot;)
+                .map_err(|e| anyhow!(&quot;Env error: {}&quot;, e))?;
+        }
+
+        let wasi_ctx = builder
+            .preopened_dir(root_dir, &quot;/&quot;)
+            .map_err(|e| anyhow!(&quot;WASI preopened_dir error: {}&quot;, e))?
+            .build();
+
+        let mut store = Store::new(&amp;self.engine, wasi_ctx);
+        store
+            .add_fuel(50_000_000_000)
+            .map_err(|e| anyhow!(&quot;Fuel error: {}&quot;, e))?;
+
+        let mut linker = self.linker.clone();
+        wasmi_wasi::add_to_linker(&amp;mut linker, |ctx| ctx)
+            .map_err(|e| anyhow!(&quot;WASI link error: {}&quot;, e))?;
+
+        let instance = linker
+            .instantiate(&amp;mut store, &amp;module)
+            .map_err(|e| anyhow!(&quot;WASI Instantiate error: {}&quot;, e))?
+            .start(&amp;mut store)
+            .map_err(|e| anyhow!(&quot;WASI Start error: {}&quot;, e))?;
+
+        // Strictly enforce WASI _start execution
+        let start_func = instance
+            .get_typed_func::&lt;(), ()&gt;(&amp;store, &quot;_start&quot;)
+            .map_err(|e| anyhow!(&quot;Export error: {}&quot;, e))?;
+        start_func
+            .call(&amp;mut store, ())
+            .unwrap_or_else(|_| println!(&quot;Execution trap caught (normal for WASI exit).&quot;));
+
+        // --- PHASE 7: STATE EXTRACTION (V2 - Strict WASI POSIX File I/O) ---
+        // We no longer blindly dump the WASM linear memory.
+        // We dynamically read the state file directly from the host filesystem.
+        let new_state = fs::read(state_path).ok();
+
+        let mut hasher = Sha256::new();
+        let output_path = format!(&quot;{}/output.txt&quot;, sandbox_dir);
+        if let Ok(content) = fs::read(&amp;output_path) {
+            hasher.update(&amp;content);
+        } else {
+            hasher.update(b&quot;NO_OUTPUT_FOUND&quot;);
+        }
+
+        // Standardized result code for WASI execution
+        let result_code = 0;
+
+        Ok((result_code, format!(&quot;{:x}&quot;, hasher.finalize()), new_state))
+    }
+}
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

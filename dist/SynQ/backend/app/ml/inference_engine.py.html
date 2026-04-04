@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>inference_engine.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;
+ML Inference Engine for model predictions.
+
+Handles model loading, inference, and prediction caching.
+&quot;&quot;&quot;
+
+import logging
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+import asyncio
+
+from app.ml.training_pipeline import (
+    training_pipeline,
+    ModelType,
+    CircuitOptimizationTrainer,
+    ResourceEstimationTrainer,
+    PatternRecognitionTrainer
+)
+
+logger = logging.getLogger(__name__)
+
+
+class Prediction:
+    &quot;&quot;&quot;Represents a model prediction.&quot;&quot;&quot;
+    
+    def __init__(
+        self,
+        prediction_id: str,
+        model_id: str,
+        input_data: Dict[str, Any],
+        output: Dict[str, Any],
+        confidence: float = 0.0
+    ):
+        self.prediction_id = prediction_id
+        self.model_id = model_id
+        self.input_data = input_data
+        self.output = output
+        self.confidence = confidence
+        self.created_at = datetime.utcnow()
+        self.inference_time = 0.0
+    
+    def to_dict(self) -&gt; Dict[str, Any]:
+        &quot;&quot;&quot;Convert to dictionary.&quot;&quot;&quot;
+        return {
+            &quot;prediction_id&quot;: self.prediction_id,
+            &quot;model_id&quot;: self.model_id,
+            &quot;input_data&quot;: self.input_data,
+            &quot;output&quot;: self.output,
+            &quot;confidence&quot;: self.confidence,
+            &quot;created_at&quot;: self.created_at.isoformat(),
+            &quot;inference_time&quot;: self.inference_time
+        }
+
+
+class InferenceEngine:
+    &quot;&quot;&quot;ML Inference Engine for predictions.&quot;&quot;&quot;
+    
+    def __init__(self):
+        self.trainers = {
+            ModelType.CIRCUIT_OPTIMIZATION: CircuitOptimizationTrainer(),
+            ModelType.RESOURCE_ESTIMATION: ResourceEstimationTrainer(),
+            ModelType.PATTERN_RECOGNITION: PatternRecognitionTrainer()
+        }
+        self.predictions: Dict[str, Prediction] = {}
+        self.prediction_cache: Dict[str, Prediction] = {}
+        self.lock = asyncio.Lock()
+    
+    async def predict_circuit_optimization(
+        self,
+        circuit_data: Dict[str, Any]
+    ) -&gt; Optional[Dict[str, Any]]:
+        &quot;&quot;&quot;
+        Predict circuit optimization.
+        
+        Input: Circuit structure, gates, qubits
+        Output: Optimized circuit, gate count reduction, estimated speedup
+        &quot;&quot;&quot;
+        try:
+            # Get deployed model
+            models = await training_pipeline.list_models(ModelType.CIRCUIT_OPTIMIZATION)
+            deployed_models = [m for m in models if m.status == &quot;deployed&quot;]
+            
+            if not deployed_models:
+                logger.warning(&quot;No deployed circuit optimization model found&quot;)
+                return None
+            
+            model = deployed_models[0]  # Use latest deployed model
+            
+            # Mock prediction
+            optimization_result = {
+                &quot;original_gate_count&quot;: circuit_data.get(&quot;gate_count&quot;, 100),
+                &quot;optimized_gate_count&quot;: int(circuit_data.get(&quot;gate_count&quot;, 100) * 0.75),
+                &quot;gate_reduction_percent&quot;: 25.0,
+                &quot;estimated_speedup&quot;: 1.33,
+                &quot;optimization_techniques&quot;: [
+                    &quot;gate_cancellation&quot;,
+                    &quot;commutation_analysis&quot;,
+                    &quot;template_matching&quot;
+                ],
+                &quot;confidence&quot;: 0.92
+            }
+            
+            return optimization_result
+        
+        except Exception as e:
+            logger.error(f&quot;Error predicting circuit optimization: {e}&quot;)
+            return None
+    
+    async def predict_resource_estimation(
+        self,
+        circuit_data: Dict[str, Any]
+    ) -&gt; Optional[Dict[str, Any]]:
+        &quot;&quot;&quot;
+        Predict resource requirements.
+        
+        Input: Circuit complexity, algorithm type, backend specs
+        Output: Estimated qubits, classical bits, execution time
+        &quot;&quot;&quot;
+        try:
+            # Get deployed model
+            models = await training_pipeline.list_models(ModelType.RESOURCE_ESTIMATION)
+            deployed_models = [m for m in models if m.status == &quot;deployed&quot;]
+            
+            if not deployed_models:
+                logger.warning(&quot;No deployed resource estimation model found&quot;)
+                return None
+            
+            model = deployed_models[0]
+            
+            # Mock prediction
+            resource_estimate = {
+                &quot;estimated_qubits&quot;: circuit_data.get(&quot;qubits&quot;, 10) + 5,
+                &quot;estimated_classical_bits&quot;: circuit_data.get(&quot;classical_bits&quot;, 10) + 2,
+                &quot;estimated_execution_time_ms&quot;: 150.5,
+                &quot;estimated_memory_mb&quot;: 256,
+                &quot;confidence&quot;: 0.88,
+                &quot;factors&quot;: {
+                    &quot;circuit_depth&quot;: &quot;high&quot;,
+                    &quot;gate_count&quot;: &quot;medium&quot;,
+                    &quot;connectivity&quot;: &quot;good&quot;
+                }
+            }
+            
+            return resource_estimate
+        
+        except Exception as e:
+            logger.error(f&quot;Error predicting resource requirements: {e}&quot;)
+            return None
+    
+    async def predict_pattern_recognition(
+        self,
+        circuit_data: Dict[str, Any]
+    ) -&gt; Optional[Dict[str, Any]]:
+        &quot;&quot;&quot;
+        Recognize patterns in circuit.
+        
+        Input: Circuit structure and execution history
+        Output: Identified patterns, anomalies, optimization opportunities
+        &quot;&quot;&quot;
+        try:
+            # Get deployed model
+            models = await training_pipeline.list_models(ModelType.PATTERN_RECOGNITION)
+            deployed_models = [m for m in models if m.status == &quot;deployed&quot;]
+            
+            if not deployed_models:
+                logger.warning(&quot;No deployed pattern recognition model found&quot;)
+                return None
+            
+            model = deployed_models[0]
+            
+            # Mock prediction
+            pattern_analysis = {
+                &quot;patterns_identified&quot;: [
+                    {
+                        &quot;pattern_type&quot;: &quot;repeated_gate_sequence&quot;,
+                        &quot;frequency&quot;: 5,
+                        &quot;optimization_potential&quot;: &quot;high&quot;
+                    },
+                    {
+                        &quot;pattern_type&quot;: &quot;unused_qubits&quot;,
+                        &quot;frequency&quot;: 2,
+                        &quot;optimization_potential&quot;: &quot;medium&quot;
+                    }
+                ],
+                &quot;anomalies&quot;: [
+                    {
+                        &quot;anomaly_type&quot;: &quot;unusual_gate_sequence&quot;,
+                        &quot;severity&quot;: &quot;low&quot;,
+                        &quot;recommendation&quot;: &quot;review_circuit_design&quot;
+                    }
+                ],
+                &quot;optimization_opportunities&quot;: [
+                    &quot;merge_single_qubit_gates&quot;,
+                    &quot;remove_identity_gates&quot;,
+                    &quot;reduce_circuit_depth&quot;
+                ],
+                &quot;confidence&quot;: 0.85
+            }
+            
+            return pattern_analysis
+        
+        except Exception as e:
+            logger.error(f&quot;Error predicting patterns: {e}&quot;)
+            return None
+    
+    async def batch_predict(
+        self,
+        model_type: ModelType,
+        circuits: List[Dict[str, Any]]
+    ) -&gt; List[Dict[str, Any]]:
+        &quot;&quot;&quot;
+        Perform batch predictions.
+        
+        Useful for analyzing multiple circuits at once.
+        &quot;&quot;&quot;
+        predictions = []
+        
+        for circuit in circuits:
+            if model_type == ModelType.CIRCUIT_OPTIMIZATION:
+                result = await self.predict_circuit_optimization(circuit)
+            elif model_type == ModelType.RESOURCE_ESTIMATION:
+                result = await self.predict_resource_estimation(circuit)
+            elif model_type == ModelType.PATTERN_RECOGNITION:
+                result = await self.predict_pattern_recognition(circuit)
+            else:
+                result = None
+            
+            if result:
+                predictions.append(result)
+        
+        return predictions
+    
+    async def get_model_performance(self, model_id: str) -&gt; Optional[Dict[str, Any]]:
+        &quot;&quot;&quot;Get performance metrics for a model.&quot;&quot;&quot;
+        model = await training_pipeline.get_model(model_id)
+        if not model:
+            return None
+        
+        return {
+            &quot;model_id&quot;: model_id,
+            &quot;name&quot;: model.name,
+            &quot;type&quot;: model.model_type.value,
+            &quot;version&quot;: model.version,
+            &quot;status&quot;: model.status,
+            &quot;accuracy&quot;: model.accuracy,
+            &quot;precision&quot;: model.precision,
+            &quot;recall&quot;: model.recall,
+            &quot;f1_score&quot;: model.f1_score,
+            &quot;inference_time&quot;: model.inference_time,
+            &quot;deployed_at&quot;: model.deployed_at.isoformat() if model.deployed_at else None
+        }
+    
+    async def get_prediction_history(
+        self,
+        model_id: str,
+        limit: int = 100
+    ) -&gt; List[Dict[str, Any]]:
+        &quot;&quot;&quot;Get prediction history for a model.&quot;&quot;&quot;
+        async with self.lock:
+            history = []
+            for pred_id, prediction in list(self.predictions.items())[-limit:]:
+                if prediction.model_id == model_id:
+                    history.append(prediction.to_dict())
+            return history
+
+
+# Global inference engine instance
+inference_engine = InferenceEngine()
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

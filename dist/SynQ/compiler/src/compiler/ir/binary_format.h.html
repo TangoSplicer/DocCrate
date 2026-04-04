@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>binary_format.h</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-h">// MIT License
+// Copyright (c) 2025 SynQ Contributors
+// 
+// Phase 11: Performance &amp; Compilation - Custom Binary Format
+// Optimized for speed and size of IR serialization
+
+#pragma once
+
+#include &lt;cstdint&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;memory&gt;
+#include &lt;cstring&gt;
+
+namespace synq::compiler::ir {
+
+/**
+ * @class BinaryFormat
+ * @brief Custom binary format specification for SynQ IR serialization
+ * 
+ * Format Overview:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │ Header (16 bytes)                                           │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │ Magic: &quot;SYNQ&quot; (4 bytes)                                     │
+ * │ Version: u32 (4 bytes)                                      │
+ * │ IR Type: u32 (4 bytes) [0=Parsed, 1=TypedOpt, 2=LLVM]      │
+ * │ Flags: u32 (4 bytes)                                        │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │ Metadata Section                                            │
+ * │ - File hash (32 bytes SHA256)                               │
+ * │ - Timestamp (u64)                                           │
+ * │ - Dependency count (u32)                                    │
+ * │ - Dependencies (variable length)                            │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │ Data Section (IR-specific)                                  │
+ * │ - Variable length, format depends on IR type                │
+ * ├─────────────────────────────────────────────────────────────┤
+ * │ Checksum (4 bytes CRC32)                                    │
+ * └─────────────────────────────────────────────────────────────┘
+ * 
+ * Design Goals:
+ * - Minimal overhead (16-byte header)
+ * - Fast parsing (no complex structures)
+ * - Compact representation (5-10x smaller than JSON)
+ * - Streaming support (can read incrementally)
+ * - Version compatibility (can handle format changes)
+ */
+
+class BinaryWriter {
+public:
+    /**
+     * @brief Write u8 (1 byte)
+     */
+    void write_u8(uint8_t value) {
+        buffer.push_back(value);
+    }
+
+    /**
+     * @brief Write u16 (2 bytes, little-endian)
+     */
+    void write_u16(uint16_t value) {
+        buffer.push_back(static_cast&lt;uint8_t&gt;(value &amp; 0xFF));
+        buffer.push_back(static_cast&lt;uint8_t&gt;((value &gt;&gt; 8) &amp; 0xFF));
+    }
+
+    /**
+     * @brief Write u32 (4 bytes, little-endian)
+     */
+    void write_u32(uint32_t value) {
+        buffer.push_back(static_cast&lt;uint8_t&gt;(value &amp; 0xFF));
+        buffer.push_back(static_cast&lt;uint8_t&gt;((value &gt;&gt; 8) &amp; 0xFF));
+        buffer.push_back(static_cast&lt;uint8_t&gt;((value &gt;&gt; 16) &amp; 0xFF));
+        buffer.push_back(static_cast&lt;uint8_t&gt;((value &gt;&gt; 24) &amp; 0xFF));
+    }
+
+    /**
+     * @brief Write u64 (8 bytes, little-endian)
+     */
+    void write_u64(uint64_t value) {
+        write_u32(static_cast&lt;uint32_t&gt;(value &amp; 0xFFFFFFFF));
+        write_u32(static_cast&lt;uint32_t&gt;((value &gt;&gt; 32) &amp; 0xFFFFFFFF));
+    }
+
+    /**
+     * @brief Write i32 (4 bytes, little-endian, two's complement)
+     */
+    void write_i32(int32_t value) {
+        write_u32(static_cast&lt;uint32_t&gt;(value));
+    }
+
+    /**
+     * @brief Write f32 (4 bytes, IEEE 754)
+     */
+    void write_f32(float value) {
+        uint32_t bits;
+        std::memcpy(&amp;bits, &amp;value, sizeof(float));
+        write_u32(bits);
+    }
+
+    /**
+     * @brief Write f64 (8 bytes, IEEE 754)
+     */
+    void write_f64(double value) {
+        uint64_t bits;
+        std::memcpy(&amp;bits, &amp;value, sizeof(double));
+        write_u64(bits);
+    }
+
+    /**
+     * @brief Write string (u32 length + data)
+     */
+    void write_string(const std::string&amp; str) {
+        write_u32(static_cast&lt;uint32_t&gt;(str.length()));
+        buffer.insert(buffer.end(), str.begin(), str.end());
+    }
+
+    /**
+     * @brief Write raw bytes
+     */
+    void write_bytes(const uint8_t* data, size_t length) {
+        buffer.insert(buffer.end(), data, data + length);
+    }
+
+    /**
+     * @brief Get the binary buffer
+     */
+    const std::vector&lt;uint8_t&gt;&amp; get_buffer() const {
+        return buffer;
+    }
+
+    /**
+     * @brief Get buffer size
+     */
+    size_t size() const {
+        return buffer.size();
+    }
+
+    /**
+     * @brief Clear buffer
+     */
+    void clear() {
+        buffer.clear();
+    }
+
+private:
+    std::vector&lt;uint8_t&gt; buffer;
+};
+
+class BinaryReader {
+public:
+    explicit BinaryReader(const std::vector&lt;uint8_t&gt;&amp; data) : data(data), pos(0) {}
+
+    /**
+     * @brief Read u8 (1 byte)
+     */
+    uint8_t read_u8() {
+        if (pos &gt;= data.size()) throw std::runtime_error(&quot;BinaryReader: read past end&quot;);
+        return data[pos++];
+    }
+
+    /**
+     * @brief Read u16 (2 bytes, little-endian)
+     */
+    uint16_t read_u16() {
+        uint8_t b0 = read_u8();
+        uint8_t b1 = read_u8();
+        return (static_cast&lt;uint16_t&gt;(b1) &lt;&lt; 8) | b0;
+    }
+
+    /**
+     * @brief Read u32 (4 bytes, little-endian)
+     */
+    uint32_t read_u32() {
+        uint8_t b0 = read_u8();
+        uint8_t b1 = read_u8();
+        uint8_t b2 = read_u8();
+        uint8_t b3 = read_u8();
+        return (static_cast&lt;uint32_t&gt;(b3) &lt;&lt; 24) |
+               (static_cast&lt;uint32_t&gt;(b2) &lt;&lt; 16) |
+               (static_cast&lt;uint32_t&gt;(b1) &lt;&lt; 8) |
+               b0;
+    }
+
+    /**
+     * @brief Read u64 (8 bytes, little-endian)
+     */
+    uint64_t read_u64() {
+        uint32_t lo = read_u32();
+        uint32_t hi = read_u32();
+        return (static_cast&lt;uint64_t&gt;(hi) &lt;&lt; 32) | lo;
+    }
+
+    /**
+     * @brief Read i32 (4 bytes, little-endian, two's complement)
+     */
+    int32_t read_i32() {
+        return static_cast&lt;int32_t&gt;(read_u32());
+    }
+
+    /**
+     * @brief Read f32 (4 bytes, IEEE 754)
+     */
+    float read_f32() {
+        uint32_t bits = read_u32();
+        float value;
+        std::memcpy(&amp;value, &amp;bits, sizeof(float));
+        return value;
+    }
+
+    /**
+     * @brief Read f64 (8 bytes, IEEE 754)
+     */
+    double read_f64() {
+        uint64_t bits = read_u64();
+        double value;
+        std::memcpy(&amp;value, &amp;bits, sizeof(double));
+        return value;
+    }
+
+    /**
+     * @brief Read string (u32 length + data)
+     */
+    std::string read_string() {
+        uint32_t length = read_u32();
+        if (pos + length &gt; data.size()) throw std::runtime_error(&quot;BinaryReader: read past end&quot;);
+        std::string str(data.begin() + pos, data.begin() + pos + length);
+        pos += length;
+        return str;
+    }
+
+    /**
+     * @brief Read raw bytes
+     */
+    std::vector&lt;uint8_t&gt; read_bytes(size_t length) {
+        if (pos + length &gt; data.size()) throw std::runtime_error(&quot;BinaryReader: read past end&quot;);
+        std::vector&lt;uint8_t&gt; result(data.begin() + pos, data.begin() + pos + length);
+        pos += length;
+        return result;
+    }
+
+    /**
+     * @brief Get current position
+     */
+    size_t tell() const {
+        return pos;
+    }
+
+    /**
+     * @brief Seek to position
+     */
+    void seek(size_t new_pos) {
+        if (new_pos &gt; data.size()) throw std::runtime_error(&quot;BinaryReader: seek past end&quot;);
+        pos = new_pos;
+    }
+
+    /**
+     * @brief Check if at end
+     */
+    bool at_end() const {
+        return pos &gt;= data.size();
+    }
+
+    /**
+     * @brief Get remaining bytes
+     */
+    size_t remaining() const {
+        return data.size() - pos;
+    }
+
+private:
+    const std::vector&lt;uint8_t&gt;&amp; data;
+    size_t pos;
+};
+
+/**
+ * @class BinaryFormatHeader
+ * @brief Header for binary IR files
+ */
+struct BinaryFormatHeader {
+    static constexpr const char* MAGIC = &quot;SYNQ&quot;;
+    static constexpr uint32_t VERSION = 1;
+
+    enum class IRType : uint32_t {
+        PARSED = 0,
+        TYPED_OPTIMIZED = 1,
+        LLVM = 2
+    };
+
+    enum class Flags : uint32_t {
+        NONE = 0,
+        DEBUG_INFO = 1 &lt;&lt; 0,
+        OPTIMIZED = 1 &lt;&lt; 1,
+        INCREMENTAL = 1 &lt;&lt; 2
+    };
+
+    IRType ir_type;
+    uint32_t flags;
+    std::string file_hash;      // SHA256 hash (32 bytes)
+    uint64_t timestamp;
+    std::vector&lt;std::string&gt; dependencies;
+
+    /**
+     * @brief Write header to binary
+     */
+    void write(BinaryWriter&amp; writer) const {
+        // Magic
+        writer.write_bytes(reinterpret_cast&lt;const uint8_t*&gt;(MAGIC), 4);
+        
+        // Version
+        writer.write_u32(VERSION);
+        
+        // IR Type
+        writer.write_u32(static_cast&lt;uint32_t&gt;(ir_type));
+        
+        // Flags
+        writer.write_u32(flags);
+        
+        // File hash (SHA256, 32 bytes)
+        if (file_hash.length() == 64) {  // Hex string
+            writer.write_string(file_hash);
+        } else {
+            writer.write_string(&quot;&quot;);
+        }
+        
+        // Timestamp
+        writer.write_u64(timestamp);
+        
+        // Dependencies
+        writer.write_u32(static_cast&lt;uint32_t&gt;(dependencies.size()));
+        for (const auto&amp; dep : dependencies) {
+            writer.write_string(dep);
+        }
+    }
+
+    /**
+     * @brief Read header from binary
+     */
+    static BinaryFormatHeader read(BinaryReader&amp; reader) {
+        BinaryFormatHeader header;
+        
+        // Magic
+        std::vector&lt;uint8_t&gt; magic = reader.read_bytes(4);
+        if (std::string(magic.begin(), magic.end()) != MAGIC) {
+            throw std::runtime_error(&quot;BinaryFormatHeader: Invalid magic number&quot;);
+        }
+        
+        // Version
+        uint32_t version = reader.read_u32();
+        if (version != VERSION) {
+            throw std::runtime_error(&quot;BinaryFormatHeader: Unsupported version&quot;);
+        }
+        
+        // IR Type
+        header.ir_type = static_cast&lt;IRType&gt;(reader.read_u32());
+        
+        // Flags
+        header.flags = reader.read_u32();
+        
+        // File hash
+        header.file_hash = reader.read_string();
+        
+        // Timestamp
+        header.timestamp = reader.read_u64();
+        
+        // Dependencies
+        uint32_t dep_count = reader.read_u32();
+        for (uint32_t i = 0; i &lt; dep_count; ++i) {
+            header.dependencies.push_back(reader.read_string());
+        }
+        
+        return header;
+    }
+};
+
+/**
+ * @brief Calculate CRC32 checksum
+ */
+uint32_t crc32(const uint8_t* data, size_t length);
+
+/**
+ * @brief Calculate SHA256 hash (hex string)
+ */
+std::string sha256(const std::string&amp; data);
+
+} // namespace synq::compiler::ir
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

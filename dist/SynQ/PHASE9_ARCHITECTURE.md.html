@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHASE9_ARCHITECTURE.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <h1>Phase 9: Classical Language Enhancements - Architecture Design</h1>
+<h2>Overview</h2>
+<p>Phase 9 expands the SynQ classical language with a comprehensive standard library, performance optimizations, and developer experience improvements. This phase transforms SynQ from a quantum-focused language into a full-featured classical programming language suitable for production use.</p>
+<h2>Architecture Goals</h2>
+<ol>
+<li><strong>Standard Library Completeness</strong> - Provide essential modules for real-world programming</li>
+<li><strong>Performance Excellence</strong> - Enable SIMD, vectorization, and parallel execution</li>
+<li><strong>Developer Experience</strong> - Implement LSP, IDE integration, and debugging tools</li>
+<li><strong>Production Readiness</strong> - Ensure stability, reliability, and comprehensive testing</li>
+</ol>
+<h2>Standard Library Structure</h2>
+<h3>Module Organization</h3>
+<pre><code>synq::stdlib/
+├── math/              # Mathematical operations
+│   ├── basic.synq     # Arithmetic, trigonometry
+│   ├── statistics.synq # Mean, median, variance
+│   ├── linear.synq    # Matrix operations
+│   └── random.synq    # Random number generation
+├── strings/           # String manipulation
+│   ├── basic.synq     # Length, concat, split
+│   ├── format.synq    # Formatting and templates
+│   ├── regex.synq     # Regular expressions
+│   └── encoding.synq  # UTF-8, base64, hex
+├── collections/       # Data structures
+│   ├── vector.synq    # Dynamic arrays
+│   ├── map.synq       # Hash maps
+│   ├── set.synq       # Hash sets
+│   ├── queue.synq     # FIFO queues
+│   └── heap.synq      # Priority queues
+├── io/                # Input/output
+│   ├── file.synq      # File operations
+│   ├── stream.synq    # Stream processing
+│   ├── console.synq   # Console I/O
+│   └── network.synq   # Network operations
+├── concurrent/        # Concurrency
+│   ├── thread.synq    # Thread management
+│   ├── mutex.synq     # Synchronization
+│   ├── channel.synq   # Message passing
+│   └── pool.synq      # Thread pools
+├── time/              # Time operations
+│   ├── duration.synq  # Time durations
+│   ├── instant.synq   # Time points
+│   └── timer.synq     # Timers and scheduling
+└── system/            # System operations
+    ├── env.synq       # Environment variables
+    ├── process.synq   # Process management
+    └── memory.synq    # Memory operations
+</code></pre>
+<h3>Math Module</h3>
+<p><strong>Basic Operations:</strong></p>
+<pre><code class="language-synq">// Trigonometry
+fn sin(x: f64) -&gt; f64
+fn cos(x: f64) -&gt; f64
+fn tan(x: f64) -&gt; f64
+fn asin(x: f64) -&gt; f64
+fn acos(x: f64) -&gt; f64
+fn atan(x: f64) -&gt; f64
+fn atan2(y: f64, x: f64) -&gt; f64
+
+// Logarithms and exponentials
+fn exp(x: f64) -&gt; f64
+fn log(x: f64) -&gt; f64
+fn log10(x: f64) -&gt; f64
+fn log2(x: f64) -&gt; f64
+fn pow(x: f64, y: f64) -&gt; f64
+fn sqrt(x: f64) -&gt; f64
+fn cbrt(x: f64) -&gt; f64
+
+// Rounding and absolute value
+fn floor(x: f64) -&gt; f64
+fn ceil(x: f64) -&gt; f64
+fn round(x: f64) -&gt; f64
+fn trunc(x: f64) -&gt; f64
+fn abs(x: f64) -&gt; f64
+fn sign(x: f64) -&gt; f64
+</code></pre>
+<p><strong>Statistics:</strong></p>
+<pre><code class="language-synq">fn mean(data: Vector&lt;f64&gt;) -&gt; f64
+fn median(data: Vector&lt;f64&gt;) -&gt; f64
+fn mode(data: Vector&lt;f64&gt;) -&gt; f64
+fn variance(data: Vector&lt;f64&gt;) -&gt; f64
+fn stddev(data: Vector&lt;f64&gt;) -&gt; f64
+fn min(data: Vector&lt;f64&gt;) -&gt; f64
+fn max(data: Vector&lt;f64&gt;) -&gt; f64
+fn sum(data: Vector&lt;f64&gt;) -&gt; f64
+fn product(data: Vector&lt;f64&gt;) -&gt; f64
+</code></pre>
+<p><strong>Linear Algebra:</strong></p>
+<pre><code class="language-synq">type Matrix&lt;T&gt; = Vector&lt;Vector&lt;T&gt;&gt;
+
+fn matrix_add(a: Matrix&lt;f64&gt;, b: Matrix&lt;f64&gt;) -&gt; Matrix&lt;f64&gt;
+fn matrix_sub(a: Matrix&lt;f64&gt;, b: Matrix&lt;f64&gt;) -&gt; Matrix&lt;f64&gt;
+fn matrix_mul(a: Matrix&lt;f64&gt;, b: Matrix&lt;f64&gt;) -&gt; Matrix&lt;f64&gt;
+fn matrix_transpose(m: Matrix&lt;f64&gt;) -&gt; Matrix&lt;f64&gt;
+fn matrix_inverse(m: Matrix&lt;f64&gt;) -&gt; Result&lt;Matrix&lt;f64&gt;, str&gt;
+fn matrix_determinant(m: Matrix&lt;f64&gt;) -&gt; f64
+fn matrix_rank(m: Matrix&lt;f64&gt;) -&gt; i32
+fn eigenvalues(m: Matrix&lt;f64&gt;) -&gt; Vector&lt;f64&gt;
+</code></pre>
+<h3>Strings Module</h3>
+<p><strong>Basic Operations:</strong></p>
+<pre><code class="language-synq">fn length(s: str) -&gt; i32
+fn concat(a: str, b: str) -&gt; str
+fn split(s: str, delimiter: str) -&gt; Vector&lt;str&gt;
+fn join(parts: Vector&lt;str&gt;, separator: str) -&gt; str
+fn trim(s: str) -&gt; str
+fn uppercase(s: str) -&gt; str
+fn lowercase(s: str) -&gt; str
+fn reverse(s: str) -&gt; str
+fn contains(s: str, substring: str) -&gt; bool
+fn starts_with(s: str, prefix: str) -&gt; bool
+fn ends_with(s: str, suffix: str) -&gt; bool
+fn replace(s: str, from: str, to: str) -&gt; str
+fn substring(s: str, start: i32, end: i32) -&gt; str
+</code></pre>
+<p><strong>Formatting:</strong></p>
+<pre><code class="language-synq">fn format(template: str, args: Vector&lt;str&gt;) -&gt; str
+fn sprintf(format: str, args: Vector&lt;any&gt;) -&gt; str
+fn parse_int(s: str) -&gt; Result&lt;i64, str&gt;
+fn parse_float(s: str) -&gt; Result&lt;f64, str&gt;
+fn to_string(value: any) -&gt; str
+</code></pre>
+<p><strong>Regular Expressions:</strong></p>
+<pre><code class="language-synq">type Regex = opaque
+fn regex_compile(pattern: str) -&gt; Result&lt;Regex, str&gt;
+fn regex_match(regex: Regex, text: str) -&gt; bool
+fn regex_find(regex: Regex, text: str) -&gt; Option&lt;str&gt;
+fn regex_find_all(regex: Regex, text: str) -&gt; Vector&lt;str&gt;
+fn regex_replace(regex: Regex, text: str, replacement: str) -&gt; str
+</code></pre>
+<h3>Collections Module</h3>
+<p><strong>Vector (Dynamic Array):</strong></p>
+<pre><code class="language-synq">type Vector&lt;T&gt; = opaque
+
+fn vector_new&lt;T&gt;() -&gt; Vector&lt;T&gt;
+fn vector_push&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;, value: T)
+fn vector_pop&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;) -&gt; Option&lt;T&gt;
+fn vector_get&lt;T&gt;(v: Vector&lt;T&gt;, index: i32) -&gt; Option&lt;T&gt;
+fn vector_set&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;, index: i32, value: T)
+fn vector_len&lt;T&gt;(v: Vector&lt;T&gt;) -&gt; i32
+fn vector_is_empty&lt;T&gt;(v: Vector&lt;T&gt;) -&gt; bool
+fn vector_clear&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;)
+fn vector_contains&lt;T&gt;(v: Vector&lt;T&gt;, value: T) -&gt; bool
+fn vector_reverse&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;)
+fn vector_sort&lt;T&gt;(v: &amp;mut Vector&lt;T&gt;)
+</code></pre>
+<p><strong>HashMap:</strong></p>
+<pre><code class="language-synq">type HashMap&lt;K, V&gt; = opaque
+
+fn map_new&lt;K, V&gt;() -&gt; HashMap&lt;K, V&gt;
+fn map_insert&lt;K, V&gt;(m: &amp;mut HashMap&lt;K, V&gt;, key: K, value: V)
+fn map_get&lt;K, V&gt;(m: HashMap&lt;K, V&gt;, key: K) -&gt; Option&lt;V&gt;
+fn map_remove&lt;K, V&gt;(m: &amp;mut HashMap&lt;K, V&gt;, key: K) -&gt; Option&lt;V&gt;
+fn map_contains&lt;K, V&gt;(m: HashMap&lt;K, V&gt;, key: K) -&gt; bool
+fn map_len&lt;K, V&gt;(m: HashMap&lt;K, V&gt;) -&gt; i32
+fn map_is_empty&lt;K, V&gt;(m: HashMap&lt;K, V&gt;) -&gt; bool
+fn map_clear&lt;K, V&gt;(m: &amp;mut HashMap&lt;K, V&gt;)
+fn map_keys&lt;K, V&gt;(m: HashMap&lt;K, V&gt;) -&gt; Vector&lt;K&gt;
+fn map_values&lt;K, V&gt;(m: HashMap&lt;K, V&gt;) -&gt; Vector&lt;V&gt;
+</code></pre>
+<h3>I/O Module</h3>
+<p><strong>File Operations:</strong></p>
+<pre><code class="language-synq">type File = opaque
+type FileMode = enum { Read, Write, Append, ReadWrite }
+
+fn file_open(path: str, mode: FileMode) -&gt; Result&lt;File, str&gt;
+fn file_close(f: File) -&gt; Result&lt;(), str&gt;
+fn file_read(f: File, bytes: i32) -&gt; Result&lt;str, str&gt;
+fn file_read_all(f: File) -&gt; Result&lt;str, str&gt;
+fn file_write(f: &amp;mut File, data: str) -&gt; Result&lt;i32, str&gt;
+fn file_seek(f: &amp;mut File, offset: i64) -&gt; Result&lt;(), str&gt;
+fn file_tell(f: File) -&gt; Result&lt;i64, str&gt;
+fn file_exists(path: str) -&gt; bool
+fn file_delete(path: str) -&gt; Result&lt;(), str&gt;
+fn file_copy(src: str, dst: str) -&gt; Result&lt;(), str&gt;
+fn file_rename(old: str, new: str) -&gt; Result&lt;(), str&gt;
+fn dir_list(path: str) -&gt; Result&lt;Vector&lt;str&gt;, str&gt;
+fn dir_create(path: str) -&gt; Result&lt;(), str&gt;
+fn dir_delete(path: str) -&gt; Result&lt;(), str&gt;
+</code></pre>
+<p><strong>Console I/O:</strong></p>
+<pre><code class="language-synq">fn print(message: str)
+fn println(message: str)
+fn read_line() -&gt; Result&lt;str, str&gt;
+fn read_char() -&gt; Result&lt;char, str&gt;
+fn flush_stdout()
+</code></pre>
+<h2>Performance Optimization Architecture</h2>
+<h3>SIMD Support</h3>
+<pre><code class="language-synq">// SIMD vector types
+type Vec4f = opaque  // 4x f32
+type Vec8f = opaque  // 8x f32
+type Vec4d = opaque  // 4x f64
+type Vec8d = opaque  // 8x f64
+
+// SIMD operations
+fn simd_add(a: Vec4f, b: Vec4f) -&gt; Vec4f
+fn simd_mul(a: Vec4f, b: Vec4f) -&gt; Vec4f
+fn simd_dot(a: Vec4f, b: Vec4f) -&gt; f32
+fn simd_load(ptr: &amp;f32) -&gt; Vec4f
+fn simd_store(ptr: &amp;mut f32, v: Vec4f)
+</code></pre>
+<h3>Parallelization</h3>
+<pre><code class="language-synq">// Thread pool
+type ThreadPool = opaque
+
+fn thread_pool_new(num_threads: i32) -&gt; ThreadPool
+fn thread_pool_execute(pool: ThreadPool, task: fn())
+fn thread_pool_wait(pool: ThreadPool)
+fn thread_pool_shutdown(pool: ThreadPool)
+
+// Parallel operations
+fn parallel_for(start: i32, end: i32, body: fn(i32))
+fn parallel_map&lt;T, U&gt;(data: Vector&lt;T&gt;, f: fn(T) -&gt; U) -&gt; Vector&lt;U&gt;
+fn parallel_reduce&lt;T&gt;(data: Vector&lt;T&gt;, init: T, f: fn(T, T) -&gt; T) -&gt; T
+</code></pre>
+<h3>Vectorization Hints</h3>
+<pre><code class="language-synq">// Compiler hints for optimization
+#[simd]
+fn vector_operation(a: Vector&lt;f64&gt;, b: Vector&lt;f64&gt;) -&gt; Vector&lt;f64&gt; {
+  // Compiler will attempt SIMD optimization
+}
+
+#[inline]
+fn small_function() { }
+
+#[unroll(4)]
+for i in 0..n {
+  // Loop will be unrolled 4 times
+}
+</code></pre>
+<h2>Language Server Protocol (LSP)</h2>
+<h3>LSP Server Implementation</h3>
+<p><strong>Capabilities:</strong></p>
+<ul>
+<li>Syntax highlighting and semantic analysis</li>
+<li>Code completion with context awareness</li>
+<li>Go to definition and find references</li>
+<li>Hover information with type details</li>
+<li>Diagnostic reporting with quick fixes</li>
+<li>Document formatting and range formatting</li>
+<li>Symbol navigation and workspace symbols</li>
+<li>Rename refactoring support</li>
+<li>Call hierarchy and type hierarchy</li>
+</ul>
+<p><strong>Architecture:</strong></p>
+<pre><code>LSP Client (IDE)
+    ↓ (JSON-RPC)
+LSP Server (synq-lsp)
+    ↓
+Parser &amp; Type Checker
+    ↓
+Semantic Analysis
+    ↓
+Response to Client
+</code></pre>
+<h2>IDE Integration</h2>
+<h3>Supported IDEs</h3>
+<ol>
+<li>
+<p><strong>Visual Studio Code</strong></p>
+<ul>
+<li>Extension package (synq-vscode)</li>
+<li>Syntax highlighting</li>
+<li>IntelliSense completion</li>
+<li>Debugging support</li>
+</ul>
+</li>
+<li>
+<p><strong>JetBrains IDEs</strong></p>
+<ul>
+<li>Plugin for IntelliJ IDEA</li>
+<li>Code inspections</li>
+<li>Refactoring tools</li>
+<li>Integrated debugging</li>
+</ul>
+</li>
+<li>
+<p><strong>Vim/Neovim</strong></p>
+<ul>
+<li>LSP configuration</li>
+<li>Syntax files</li>
+<li>Completion plugins</li>
+</ul>
+</li>
+</ol>
+<h2>Debugging Support</h2>
+<h3>Debugger Features</h3>
+<ul>
+<li><strong>Breakpoints</strong> - Line, conditional, and logpoint breakpoints</li>
+<li><strong>Step Execution</strong> - Step over, into, and out of functions</li>
+<li><strong>Call Stack</strong> - View full call stack with local variables</li>
+<li><strong>Watch Expressions</strong> - Monitor variable values</li>
+<li><strong>REPL</strong> - Interactive evaluation of expressions</li>
+<li><strong>Memory Inspector</strong> - View memory layout and contents</li>
+<li><strong>Performance Profiling</strong> - CPU and memory profiling</li>
+</ul>
+<h3>Debug Protocol</h3>
+<pre><code>IDE Debugger
+    ↓ (Debug Adapter Protocol)
+Debug Adapter
+    ↓
+SynQ Runtime
+    ↓
+Execution Engine
+</code></pre>
+<h2>Implementation Timeline</h2>
+<p>| Phase | Duration | Deliverables |
+|-------|----------|--------------|
+| 1. Design &amp; Architecture | 1 week | Design docs, API specs |
+| 2. Core Stdlib | 2 weeks | Math, strings, collections |
+| 3. I/O &amp; Concurrency | 1 week | File ops, threading |
+| 4. Performance | 1 week | SIMD, vectorization |
+| 5. LSP Implementation | 1 week | LSP server, protocol |
+| 6. IDE Integration | 1 week | VS Code, JetBrains |
+| 7. Testing &amp; Deployment | 1 week | Tests, documentation |</p>
+<h2>Success Metrics</h2>
+<h3>Code Quality</h3>
+<ul>
+<li>95%+ test coverage</li>
+<li>Zero critical bugs in stdlib</li>
+<li>Performance within 10% of C/C++</li>
+</ul>
+<h3>Developer Experience</h3>
+<ul>
+<li>LSP response time &lt; 100ms</li>
+<li>IDE completion accuracy &gt; 90%</li>
+<li>Documentation coverage 100%</li>
+</ul>
+<h3>Performance</h3>
+<ul>
+<li>SIMD operations 4-8x faster than scalar</li>
+<li>Parallel operations scale linearly</li>
+<li>Memory usage within 20% of C</li>
+</ul>
+<h2>Dependencies</h2>
+<h3>External Libraries</h3>
+<ul>
+<li>BLAS/LAPACK for linear algebra</li>
+<li>PCRE for regular expressions</li>
+<li>OpenSSL for cryptography</li>
+<li>Boost for threading</li>
+</ul>
+<h3>Internal Dependencies</h3>
+<ul>
+<li>Phase 1-8 infrastructure</li>
+<li>Type system and compiler</li>
+<li>Runtime and memory management</li>
+</ul>
+<h2>Risk Mitigation</h2>
+<h3>Risks &amp; Mitigations</h3>
+<p>| Risk | Impact | Mitigation |
+|------|--------|-----------|
+| Performance regression | High | Continuous benchmarking |
+| LSP complexity | Medium | Incremental implementation |
+| IDE compatibility | Medium | Extensive testing |
+| Breaking changes | High | Semantic versioning |</p>
+<h2>Deliverables</h2>
+<h3>Code</h3>
+<ul>
+<li>10,000+ lines of stdlib code</li>
+<li>LSP server implementation</li>
+<li>IDE plugins and extensions</li>
+<li>Debugger implementation</li>
+</ul>
+<h3>Documentation</h3>
+<ul>
+<li>API reference for all modules</li>
+<li>Performance optimization guide</li>
+<li>IDE setup and usage guide</li>
+<li>Debugging guide</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>500+ unit tests</li>
+<li>100+ integration tests</li>
+<li>Performance benchmarks</li>
+<li>Compatibility tests</li>
+</ul>
+<h2>Next Steps</h2>
+<ol>
+<li><strong>Week 1:</strong> Design finalization and architecture review</li>
+<li><strong>Week 2-3:</strong> Core stdlib implementation</li>
+<li><strong>Week 4:</strong> I/O and concurrency modules</li>
+<li><strong>Week 5:</strong> Performance optimizations</li>
+<li><strong>Week 6:</strong> LSP and IDE integration</li>
+<li><strong>Week 7:</strong> Testing and deployment</li>
+</ol>
+<hr />
+<p><strong>Phase 9 Status:</strong> Ready for implementation
+<strong>Estimated Completion:</strong> 7 weeks
+<strong>Team Size:</strong> 3-4 developers</p>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

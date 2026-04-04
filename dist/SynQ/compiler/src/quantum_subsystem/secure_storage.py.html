@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>secure_storage.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py"># MIT License
+#
+# Copyright (c) 2025 SynQ Contributors
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the &quot;Software&quot;), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+&quot;&quot;&quot;
+Secure Quantum Data Storage - Complete Algebraic Implementation
+
+This module implements the non-superimposed qubit storage (NSQS),
+quantum one-time pad encryption, and key management systems as specified
+in the algebraic formulation.
+
+Author: Quantum Subsystem Team
+License: 
+&quot;&quot;&quot;
+
+import numpy as np
+from typing import List, Tuple, Dict, Optional, Union
+import secrets
+from dataclasses import dataclass
+import hashlib
+from quantum_walker import QuantumConfig, HilbertSpace
+
+@dataclass
+class SecurityConfig:
+    &quot;&quot;&quot;Security configuration parameters&quot;&quot;&quot;
+    key_length: int = 256
+    encoding_dim: int = 8  # 8-dimensional encoding space
+    syndrome_bits: int = 4
+    signature_length: int = 128
+
+class NonSuperimposedQubitStorage:
+    &quot;&quot;&quot;
+    Non-Superimposed Qubit Storage (NSQS) implementation
+    
+    Encoding Transformation:
+    E: ℂ² → ℂ⁸
+    |0⟩ ↦ (1/√2)(|000⟩ + |111⟩)
+    |1⟩ ↦ (1/√2)(|001⟩ + |110⟩)
+    &quot;&quot;&quot;
+    
+    def __init__(self, config: SecurityConfig):
+        self.config = config
+        self.encoding_dim = config.encoding_dim
+        
+    def encode_qubit(self, state: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Encode single qubit state:
+        |ψ_data⟩ = α|0⟩ + β|1⟩
+        ↓
+        |ψ_encoded⟩ = (α/√2)(|000⟩ + |111⟩) + (β/√2)(|001⟩ + |110⟩)
+        &quot;&quot;&quot;
+        if len(state) != 2:
+            raise ValueError(&quot;Input must be a 2D qubit state vector&quot;)
+            
+        alpha, beta = state
+        
+        # Create encoding basis states
+        basis_0 = np.array([1, 0, 0, 0, 0, 0, 0, 1]) / np.sqrt(2)  # |000⟩ + |111⟩
+        basis_1 = np.array([0, 1, 0, 0, 0, 0, 1, 0]) / np.sqrt(2)  # |001⟩ + |110⟩
+        
+        # Encode state
+        encoded = alpha * basis_0 + beta * basis_1
+        
+        # Normalize
+        norm = np.linalg.norm(encoded)
+        if norm &gt; 0:
+            encoded = encoded / norm
+            
+        return encoded
+        
+    def decode_qubit(self, encoded_state: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Decode qubit from NSQS encoding
+        &quot;&quot;&quot;
+        if len(encoded_state) != 8:
+            raise ValueError(&quot;Encoded state must be 8D&quot;)
+            
+        # Project onto encoding basis
+        basis_0 = np.array([1, 0, 0, 0, 0, 0, 0, 1]) / np.sqrt(2)
+        basis_1 = np.array([0, 1, 0, 0, 0, 0, 1, 0]) / np.sqrt(2)
+        
+        alpha = np.vdot(basis_0, encoded_state)
+        beta = np.vdot(basis_1, encoded_state)
+        
+        # Reconstruct qubit state
+        decoded = np.array([alpha, beta])
+        
+        # Normalize
+        norm = np.linalg.norm(decoded)
+        if norm &gt; 0:
+            decoded = decoded / norm
+            
+        return decoded
+
+class QuantumOneTimePad:
+    &quot;&quot;&quot;
+    Quantum One-Time Pad encryption implementation
+    &quot;&quot;&quot;
+    
+    def __init__(self, key_length: int = 256):
+        self.key_length = key_length
+        
+    def generate_quantum_key(self, n_qubits: int) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Generate quantum random key:
+        |K⟩ = Σ_{k=0}^{2^n-1} (1/√2^n) |k⟩ ⊗ |π(k)⟩
+        &quot;&quot;&quot;
+        # Generate random key matrix
+        key_matrix = np.random.randn(4, 4) + 1j * np.random.randn(4, 4)
+        key_matrix = (key_matrix + key_matrix.conj().T) / 2  # Make Hermitian
+        
+        # Normalize
+        norm = np.linalg.norm(key_matrix)
+        if norm &gt; 0:
+            key_matrix = key_matrix / norm
+            
+        return key_matrix
+        
+    def encrypt(self, state: np.ndarray, key: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Quantum One-Time Pad encryption:
+        E_QTP(ρ, K) = Σ_{i,j} K_{ij} σᵢ ρ σⱼ† K_{ij}†
+        &quot;&quot;&quot;
+        # Pauli matrices
+        sigma = {
+            'I': np.eye(2),
+            'X': np.array([[0, 1], [1, 0]]),
+            'Y': np.array([[0, -1j], [1j, 0]]),
+            'Z': np.array([[1, 0], [0, -1]])
+        }
+        
+        # Create density matrix
+        rho = np.outer(state, state.conj())
+        
+        # Apply encryption
+        encrypted = np.zeros_like(rho, dtype=complex)
+        
+        pauli_ops = ['I', 'X', 'Y', 'Z']
+        for i, pi in enumerate(pauli_ops):
+            for j, pj in enumerate(pauli_ops):
+                if abs(key[i, j]) &gt; 1e-10:  # Only apply if key element is non-zero
+                    term = key[i, j] * sigma[pi] @ rho @ sigma[pj].conj().T * key[i, j].conj()
+                    encrypted += term
+                    
+        # Convert back to state vector (approximate)
+        eigvals, eigvecs = np.linalg.eigh(encrypted)
+        max_idx = np.argmax(np.abs(eigvals))
+        encrypted_state = eigvecs[:, max_idx]
+        
+        # Normalize
+        norm = np.linalg.norm(encrypted_state)
+        if norm &gt; 0:
+            encrypted_state = encrypted_state / norm
+            
+        return encrypted_state
+        
+    def decrypt(self, encrypted_state: np.ndarray, key: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Decrypt quantum one-time pad
+        &quot;&quot;&quot;
+        # For simplicity, use inverse operation
+        # In practice, this would be more complex
+        key_inv = np.linalg.inv(key) if np.linalg.det(key) != 0 else key.conj().T
+        
+        # Apply inverse encryption
+        decrypted = self.encrypt(encrypted_state, key_inv)
+        
+        return decrypted
+
+class QuantumKeyDistribution:
+    &quot;&quot;&quot;
+    Quantum key distribution protocol implementation
+    &quot;&quot;&quot;
+    
+    def __init__(self):
+        self.bell_state = self._create_bell_state()
+        
+    def _create_bell_state(self) -&gt; np.ndarray:
+        &quot;&quot;&quot;Create Bell state |Φ⁺⟩ = (1/√2)(|00⟩ + |11⟩)&quot;&quot;&quot;
+        bell = np.zeros(4)
+        bell[0] = 1 / np.sqrt(2)
+        bell[3] = 1 / np.sqrt(2)
+        return bell
+        
+    def distribute_key(self, message_length: int) -&gt; Tuple[np.ndarray, np.ndarray]:
+        &quot;&quot;&quot;
+        Implement BB84-like key distribution protocol
+        &quot;&quot;&quot;
+        # Generate random basis choices
+        alice_bases = np.random.choice(['X', 'Z'], message_length)
+        bob_bases = np.random.choice(['X', 'Z'], message_length)
+        
+        # Generate random bits
+        alice_bits = np.random.choice([0, 1], message_length)
+        
+        # Alice's states
+        alice_states = []
+        for bit, basis in zip(alice_bits, alice_bases):
+            if basis == 'Z':
+                state = np.array([1, 0]) if bit == 0 else np.array([0, 1])
+            else:  # X basis
+                state = np.array([1, 1]) / np.sqrt(2) if bit == 0 else np.array([1, -1]) / np.sqrt(2)
+            alice_states.append(state)
+            
+        # Bob's measurements
+        bob_results = []
+        for i, (state, basis) in enumerate(zip(alice_states, bob_bases)):
+            if basis == 'Z':
+                prob_0 = abs(state[0]) ** 2
+                result = 0 if np.random.random() &lt; prob_0 else 1
+            else:  # X basis
+                prob_plus = abs(np.vdot(np.array([1, 1]) / np.sqrt(2), state)) ** 2
+                result = 0 if np.random.random() &lt; prob_plus else 1
+            bob_results.append(result)
+            
+        # Keep only matching bases
+        matching_indices = [i for i in range(message_length) 
+                           if alice_bases[i] == bob_bases[i]]
+        
+        # Shared key
+        shared_key = ''.join([str(alice_bits[i]) for i in matching_indices])
+        
+        # Convert to numerical key
+        key_array = np.array([int(bit) for bit in shared_key])
+        
+        return key_array, alice_states
+
+class QuantumErrorCorrection:
+    &quot;&quot;&quot;
+    Quantum error correction for storage implementation
+    &quot;&quot;&quot;
+    
+    def __init__(self, config: SecurityConfig):
+        self.config = config
+        
+    def create_stabilizers(self) -&gt; List[np.ndarray]:
+        &quot;&quot;&quot;
+        Create stabilizer generators for quantum error correction:
+        S₁ = X ⊗ X ⊗ I
+        S₂ = I ⊗ X ⊗ X
+        S₃ = Z ⊗ Z ⊗ I
+        S₄ = I ⊗ Z ⊗ Z
+        &quot;&quot;&quot;
+        X = np.array([[0, 1], [1, 0]])
+        Z = np.array([[1, 0], [0, -1]])
+        I = np.eye(2)
+        
+        stabilizers = [
+            np.kron(np.kron(X, X), I),  # S₁ = X ⊗ X ⊗ I
+            np.kron(np.kron(I, X), X),  # S₂ = I ⊗ X ⊗ X
+            np.kron(np.kron(Z, Z), I),  # S₃ = Z ⊗ Z ⊗ I
+            np.kron(np.kron(I, Z), Z),  # S₄ = I ⊗ Z ⊗ Z
+        ]
+        
+        return stabilizers
+        
+    def compute_syndrome(self, state: np.ndarray, stabilizers: List[np.ndarray]) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Compute error syndrome: s = (s₁, s₂, s₃, s₄)
+        &quot;&quot;&quot;
+        syndrome = []
+        
+        for stabilizer in stabilizers:
+            # Compute expectation value
+            expectation = np.real(np.vdot(state, stabilizer @ state))
+            syndrome.append(1 if abs(expectation + 1) &lt; 1e-6 else 0)
+            
+        return np.array(syndrome)
+        
+    def apply_correction(self, state: np.ndarray, syndrome: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Apply error correction based on syndrome
+        &quot;&quot;&quot;
+        # Pauli matrices for correction
+        pauli = {
+            'I': np.eye(2),
+            'X': np.array([[0, 1], [1, 0]]),
+            'Y': np.array([[0, -1j], [1j, 0]]),
+            'Z': np.array([[1, 0], [0, -1]])
+        }
+        
+        # Simple syndrome-to-correction mapping
+        correction_map = {
+            tuple([0, 0, 0, 0]): 'III',  # No error
+            tuple([1, 0, 0, 0]): 'XII',  # X error on qubit 1
+            tuple([1, 1, 0, 0]): 'IXI',  # X error on qubit 2
+            tuple([0, 1, 0, 0]): 'XXI',  # X error on qubit 3
+            tuple([0, 0, 1, 0]): 'ZII',  # Z error on qubit 1
+            tuple([0, 0, 1, 1]): 'IZI',  # Z error on qubit 2
+            tuple([0, 0, 0, 1]): 'ZZI',  # Z error on qubit 3
+        }
+        
+        syndrome_tuple = tuple(syndrome)
+        if syndrome_tuple in correction_map:
+            correction_ops = correction_map[syndrome_tuple]
+            
+            # Build correction operator
+            correction = np.eye(8)  # 3-qubit system
+            if len(correction_ops) == 3:
+                op1 = pauli[correction_ops[0]]
+                op2 = pauli[correction_ops[1]]
+                op3 = pauli[correction_ops[2]]
+                correction = np.kron(np.kron(op1, op2), op3)
+                
+            # Apply correction
+            corrected_state = correction @ state
+            
+            # Normalize
+            norm = np.linalg.norm(corrected_state)
+            if norm &gt; 0:
+                corrected_state = corrected_state / norm
+                
+            return corrected_state
+        else:
+            return state
+
+class QuantumDigitalSignatures:
+    &quot;&quot;&quot;
+    Quantum digital signatures implementation
+    &quot;&quot;&quot;
+    
+    def __init__(self, config: SecurityConfig):
+        self.config = config
+        
+    def generate_signature(self, message: str, private_key: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;
+        Generate quantum digital signature:
+        |sig⟩ = U_sign(K_private)|message⟩|0⟩^⊗n_sig
+        &quot;&quot;&quot;
+        # Convert message to quantum state
+        message_bytes = message.encode('utf-8')
+        message_hash = hashlib.sha256(message_bytes).hexdigest()
+        
+        # Create quantum state from hash
+        hash_int = int(message_hash[:16], 16)  # Use first 64 bits
+        message_state = np.zeros(2 ** self.config.signature_length)
+        message_state[hash_int % len(message_state)] = 1
+        
+        # Create signing unitary (simplified)
+        signing_unitary = self._create_signing_unitary(private_key)
+        
+        # Apply signature
+        signature_state = signing_unitary @ message_state
+        
+        return signature_state
+        
+    def verify_signature(self, message: str, signature: np.ndarray, 
+                        public_key: np.ndarray) -&gt; bool:
+        &quot;&quot;&quot;
+        Verify quantum digital signature
+        &quot;&quot;&quot;
+        # Regenerate message state
+        message_bytes = message.encode('utf-8')
+        message_hash = hashlib.sha256(message_bytes).hexdigest()
+        hash_int = int(message_hash[:16], 16)
+        
+        expected_state = np.zeros(len(signature))
+        expected_state[hash_int % len(expected_state)] = 1
+        
+        # Verify using public key
+        verification_unitary = self._create_verification_unitary(public_key)
+        verified_state = verification_unitary @ signature
+        
+        # Check fidelity
+        fidelity = abs(np.vdot(expected_state, verified_state)) ** 2
+        
+        return fidelity &gt; 0.95  # High threshold for security
+        
+    def _create_signing_unitary(self, key: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;Create quantum signing unitary&quot;&quot;&quot;
+        # Simplified implementation
+        dim = key.shape[0]
+        unitary = np.eye(dim, dtype=complex)
+        
+        # Apply key-based transformation
+        for i in range(min(dim, key.shape[0])):
+            if abs(key[i, i]) &gt; 0.1:
+                phase = np.exp(1j * np.pi * key[i, i])
+                unitary[i, i] = phase
+                
+        return unitary
+        
+    def _create_verification_unitary(self, key: np.ndarray) -&gt; np.ndarray:
+        &quot;&quot;&quot;Create quantum verification unitary&quot;&quot;&quot;
+        # Inverse of signing unitary
+        signing = self._create_signing_unitary(key)
+        return signing.conj().T
+
+# Example usage and testing
+if __name__ == &quot;__main__&quot;:
+    # Test NSQS
+    config = SecurityConfig()
+    nsqs = NonSuperimposedQubitStorage(config)
+    
+    test_qubit = np.array([1/np.sqrt(2), 1/np.sqrt(2)])  # |+⟩ state
+    encoded = nsqs.encode_qubit(test_qubit)
+    decoded = nsqs.decode_qubit(encoded)
+    
+    print(f&quot;Original qubit: {test_qubit}&quot;)
+    print(f&quot;Decoded qubit: {decoded}&quot;)
+    print(f&quot;Fidelity: {abs(np.vdot(test_qubit, decoded))**2:.6f}&quot;)
+    
+    # Test QOTP
+    qotp = QuantumOneTimePad()
+    key = qotp.generate_quantum_key(1)
+    encrypted = qotp.encrypt(test_qubit, key)
+    decrypted = qotp.decrypt(encrypted, key)
+    
+    print(f&quot;QOTP fidelity: {abs(np.vdot(test_qubit, decrypted))**2:.6f}&quot;)
+    
+    # Test QKD
+    qkd = QuantumKeyDistribution()
+    key, states = qkd.distribute_key(10)
+    print(f&quot;Shared key length: {len(key)}&quot;)
+    
+    # Test error correction
+    qec = QuantumErrorCorrection(config)
+    stabilizers = qec.create_stabilizers()
+    syndrome = qec.compute_syndrome(test_qubit, stabilizers[:1])
+    print(f&quot;Syndrome computed: {syndrome}&quot;)
+    
+    print(&quot;Secure quantum storage components initialized successfully!&quot;)
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

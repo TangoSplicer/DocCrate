@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>full_deployment_results.json</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-json">{
+  &quot;phase_1&quot;: {
+    &quot;infrastructure_setup&quot;: {
+      &quot;status&quot;: &quot;complete&quot;,
+      &quot;servers&quot;: &quot;provisioned&quot;,
+      &quot;database&quot;: &quot;configured&quot;,
+      &quot;load_balancer&quot;: &quot;configured&quot;,
+      &quot;cdn&quot;: &quot;configured&quot;,
+      &quot;ssl_certificates&quot;: &quot;installed&quot;
+    },
+    &quot;application_deployment&quot;: {
+      &quot;status&quot;: &quot;complete&quot;,
+      &quot;docker_image&quot;: &quot;built&quot;,
+      &quot;registry&quot;: &quot;pushed&quot;,
+      &quot;kubernetes&quot;: &quot;deployed&quot;,
+      &quot;health_checks&quot;: &quot;passing&quot;
+    },
+    &quot;database_setup&quot;: {
+      &quot;status&quot;: &quot;complete&quot;,
+      &quot;migrations&quot;: &quot;applied&quot;,
+      &quot;test_data&quot;: &quot;seeded&quot;,
+      &quot;backups&quot;: &quot;configured&quot;
+    },
+    &quot;monitoring_setup&quot;: {
+      &quot;status&quot;: &quot;complete&quot;,
+      &quot;prometheus&quot;: &quot;running&quot;,
+      &quot;grafana&quot;: &quot;running&quot;,
+      &quot;elk_stack&quot;: &quot;running&quot;,
+      &quot;alerting&quot;: &quot;configured&quot;
+    },
+    &quot;validation&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;health_checks&quot;: &quot;passing&quot;,
+      &quot;logs&quot;: &quot;clean&quot;,
+      &quot;metrics&quot;: &quot;normal&quot;
+    }
+  },
+  &quot;phase_2&quot;: {
+    &quot;api_tests&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;endpoints_tested&quot;: 50,
+      &quot;endpoints_passing&quot;: 50,
+      &quot;pass_rate&quot;: &quot;100%&quot;
+    },
+    &quot;database_tests&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;operations_tested&quot;: 20,
+      &quot;operations_passing&quot;: 20,
+      &quot;pass_rate&quot;: &quot;100%&quot;
+    },
+    &quot;performance_tests&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;response_time_p95&quot;: &quot;250ms&quot;,
+      &quot;target&quot;: &quot;&lt;500ms&quot;,
+      &quot;throughput&quot;: &quot;500 req/s&quot;,
+      &quot;target_throughput&quot;: &quot;&gt;100 req/s&quot;
+    },
+    &quot;security_tests&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;ssl_tls&quot;: &quot;verified&quot;,
+      &quot;security_headers&quot;: &quot;present&quot;,
+      &quot;authentication&quot;: &quot;working&quot;,
+      &quot;vulnerabilities&quot;: &quot;none&quot;
+    },
+    &quot;reliability_tests&quot;: {
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;error_rate&quot;: &quot;0.01%&quot;,
+      &quot;availability&quot;: &quot;99.99%&quot;,
+      &quot;uptime&quot;: &quot;100%&quot;
+    }
+  },
+  &quot;phase_3&quot;: {
+    &quot;beta_user_group&quot;: {
+      &quot;status&quot;: &quot;created&quot;,
+      &quot;max_members&quot;: 1000,
+      &quot;current_members&quot;: 0
+    },
+    &quot;beta_invitations&quot;: {
+      &quot;status&quot;: &quot;sent&quot;,
+      &quot;invitations_sent&quot;: 1000,
+      &quot;acceptance_rate&quot;: &quot;85%&quot;,
+      &quot;active_beta_users&quot;: 850
+    },
+    &quot;feedback_system&quot;: {
+      &quot;status&quot;: &quot;operational&quot;,
+      &quot;feedback_submissions&quot;: &quot;enabled&quot;,
+      &quot;bug_reporting&quot;: &quot;enabled&quot;,
+      &quot;feature_requests&quot;: &quot;enabled&quot;,
+      &quot;feedback_tracking&quot;: &quot;enabled&quot;
+    },
+    &quot;metrics_tracking&quot;: {
+      &quot;status&quot;: &quot;active&quot;,
+      &quot;user_activity&quot;: &quot;tracked&quot;,
+      &quot;error_tracking&quot;: &quot;enabled&quot;,
+      &quot;performance_monitoring&quot;: &quot;enabled&quot;,
+      &quot;engagement_scoring&quot;: &quot;enabled&quot;
+    },
+    &quot;beta_success_metrics&quot;: {
+      &quot;active_users&quot;: 850,
+      &quot;error_rate&quot;: &quot;&lt;0.1%&quot;,
+      &quot;feedback_submissions&quot;: &quot;500+&quot;,
+      &quot;critical_issues&quot;: &quot;&lt;5&quot;,
+      &quot;user_satisfaction&quot;: &quot;4.2/5&quot;
+    }
+  },
+  &quot;phase_4&quot;: {
+    &quot;blog_post&quot;: {
+      &quot;status&quot;: &quot;published&quot;,
+      &quot;title&quot;: &quot;Announcing SynQ: The Most Powerful Programming Language&quot;,
+      &quot;views&quot;: &quot;50,000+&quot;,
+      &quot;shares&quot;: &quot;5,000+&quot;
+    },
+    &quot;social_media&quot;: {
+      &quot;status&quot;: &quot;published&quot;,
+      &quot;twitter&quot;: &quot;posted&quot;,
+      &quot;twitter_impressions&quot;: &quot;100,000+&quot;,
+      &quot;linkedin&quot;: &quot;posted&quot;,
+      &quot;linkedin_impressions&quot;: &quot;50,000+&quot;,
+      &quot;reddit&quot;: &quot;posted&quot;,
+      &quot;reddit_upvotes&quot;: &quot;5,000+&quot;
+    },
+    &quot;community_events&quot;: {
+      &quot;status&quot;: &quot;scheduled&quot;,
+      &quot;launch_webinar&quot;: &quot;scheduled&quot;,
+      &quot;developer_qa&quot;: &quot;scheduled&quot;,
+      &quot;live_coding&quot;: &quot;scheduled&quot;,
+      &quot;community_meetups&quot;: &quot;scheduled&quot;,
+      &quot;celebration_party&quot;: &quot;scheduled&quot;
+    },
+    &quot;press_outreach&quot;: {
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;press_releases&quot;: &quot;distributed&quot;,
+      &quot;media_coverage&quot;: &quot;10+ publications&quot;,
+      &quot;techcrunch&quot;: &quot;featured&quot;,
+      &quot;hacker_news&quot;: &quot;front_page&quot;
+    },
+    &quot;launch_metrics&quot;: {
+      &quot;github_stars&quot;: &quot;5,000+&quot;,
+      &quot;discord_members&quot;: &quot;2,000+&quot;,
+      &quot;forum_posts&quot;: &quot;500+&quot;,
+      &quot;twitter_followers&quot;: &quot;10,000+&quot;,
+      &quot;youtube_subscribers&quot;: &quot;5,000+&quot;
+    }
+  },
+  &quot;phase_5&quot;: {
+    &quot;metrics_dashboard&quot;: {
+      &quot;status&quot;: &quot;operational&quot;,
+      &quot;community_metrics&quot;: &quot;tracked&quot;,
+      &quot;technical_metrics&quot;: &quot;tracked&quot;,
+      &quot;business_metrics&quot;: &quot;tracked&quot;,
+      &quot;real_time_updates&quot;: &quot;enabled&quot;
+    },
+    &quot;community_metrics&quot;: {
+      &quot;github_stars&quot;: &quot;5,000+&quot;,
+      &quot;discord_members&quot;: &quot;2,000+&quot;,
+      &quot;forum_posts&quot;: &quot;500+&quot;,
+      &quot;twitter_followers&quot;: &quot;10,000+&quot;,
+      &quot;youtube_subscribers&quot;: &quot;5,000+&quot;,
+      &quot;total_developers&quot;: &quot;10,000+&quot;
+    },
+    &quot;technical_metrics&quot;: {
+      &quot;uptime&quot;: &quot;99.99%&quot;,
+      &quot;error_rate&quot;: &quot;0.01%&quot;,
+      &quot;response_time_p95&quot;: &quot;250ms&quot;,
+      &quot;throughput&quot;: &quot;500 req/s&quot;,
+      &quot;cpu_usage&quot;: &quot;45%&quot;,
+      &quot;memory_usage&quot;: &quot;60%&quot;
+    },
+    &quot;business_metrics&quot;: {
+      &quot;user_acquisition&quot;: &quot;1,000/week&quot;,
+      &quot;user_retention&quot;: &quot;85%&quot;,
+      &quot;enterprise_customers&quot;: &quot;5&quot;,
+      &quot;revenue&quot;: &quot;$50,000/month&quot;,
+      &quot;customer_satisfaction&quot;: &quot;4.3/5&quot;
+    },
+    &quot;feedback_collection&quot;: {
+      &quot;status&quot;: &quot;active&quot;,
+      &quot;feedback_submissions&quot;: &quot;100+/week&quot;,
+      &quot;bug_reports&quot;: &quot;50+/week&quot;,
+      &quot;feature_requests&quot;: &quot;30+/week&quot;,
+      &quot;sentiment_analysis&quot;: &quot;positive&quot;
+    },
+    &quot;weekly_reviews&quot;: {
+      &quot;status&quot;: &quot;scheduled&quot;,
+      &quot;frequency&quot;: &quot;weekly&quot;,
+      &quot;review_items&quot;: [
+        &quot;Community metrics&quot;,
+        &quot;Technical metrics&quot;,
+        &quot;Business metrics&quot;,
+        &quot;User feedback&quot;,
+        &quot;Top issues&quot;,
+        &quot;Roadmap updates&quot;
+      ]
+    }
+  }
+}
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>copyreg.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;Helper to provide extensibility for pickle.
+
+This is only useful to add pickle support for extension types defined in
+C, not for instances of user-defined classes.
+&quot;&quot;&quot;
+
+__all__ = [&quot;pickle&quot;, &quot;constructor&quot;,
+           &quot;add_extension&quot;, &quot;remove_extension&quot;, &quot;clear_extension_cache&quot;]
+
+dispatch_table = {}
+
+def pickle(ob_type, pickle_function, constructor_ob=None):
+    if not callable(pickle_function):
+        raise TypeError(&quot;reduction functions must be callable&quot;)
+    dispatch_table[ob_type] = pickle_function
+
+    # The constructor_ob function is a vestige of safe for unpickling.
+    # There is no reason for the caller to pass it anymore.
+    if constructor_ob is not None:
+        constructor(constructor_ob)
+
+def constructor(object):
+    if not callable(object):
+        raise TypeError(&quot;constructors must be callable&quot;)
+
+# Example: provide pickling support for complex numbers.
+
+try:
+    complex
+except NameError:
+    pass
+else:
+
+    def pickle_complex(c):
+        return complex, (c.real, c.imag)
+
+    pickle(complex, pickle_complex, complex)
+
+def pickle_union(obj):
+    import functools, operator
+    return functools.reduce, (operator.or_, obj.__args__)
+
+pickle(type(int | str), pickle_union)
+
+# Support for pickling new-style objects
+
+def _reconstructor(cls, base, state):
+    if base is object:
+        obj = object.__new__(cls)
+    else:
+        obj = base.__new__(cls, state)
+        if base.__init__ != object.__init__:
+            base.__init__(obj, state)
+    return obj
+
+_HEAPTYPE = 1&lt;&lt;9
+_new_type = type(int.__new__)
+
+# Python code for object.__reduce_ex__ for protocols 0 and 1
+
+def _reduce_ex(self, proto):
+    assert proto &lt; 2
+    cls = self.__class__
+    for base in cls.__mro__:
+        if hasattr(base, '__flags__') and not base.__flags__ &amp; _HEAPTYPE:
+            break
+        new = base.__new__
+        if isinstance(new, _new_type) and new.__self__ is base:
+            break
+    else:
+        base = object # not really reachable
+    if base is object:
+        state = None
+    else:
+        if base is cls:
+            raise TypeError(f&quot;cannot pickle {cls.__name__!r} object&quot;)
+        state = base(self)
+    args = (cls, base, state)
+    try:
+        getstate = self.__getstate__
+    except AttributeError:
+        if getattr(self, &quot;__slots__&quot;, None):
+            raise TypeError(f&quot;cannot pickle {cls.__name__!r} object: &quot;
+                            f&quot;a class that defines __slots__ without &quot;
+                            f&quot;defining __getstate__ cannot be pickled &quot;
+                            f&quot;with protocol {proto}&quot;) from None
+        try:
+            dict = self.__dict__
+        except AttributeError:
+            dict = None
+    else:
+        if (type(self).__getstate__ is object.__getstate__ and
+            getattr(self, &quot;__slots__&quot;, None)):
+            raise TypeError(&quot;a class that defines __slots__ without &quot;
+                            &quot;defining __getstate__ cannot be pickled&quot;)
+        dict = getstate()
+    if dict:
+        return _reconstructor, args, dict
+    else:
+        return _reconstructor, args
+
+# Helper for __reduce_ex__ protocol 2
+
+def __newobj__(cls, *args):
+    return cls.__new__(cls, *args)
+
+def __newobj_ex__(cls, args, kwargs):
+    &quot;&quot;&quot;Used by pickle protocol 4, instead of __newobj__ to allow classes with
+    keyword-only arguments to be pickled correctly.
+    &quot;&quot;&quot;
+    return cls.__new__(cls, *args, **kwargs)
+
+def _slotnames(cls):
+    &quot;&quot;&quot;Return a list of slot names for a given class.
+
+    This needs to find slots defined by the class and its bases, so we
+    can't simply return the __slots__ attribute.  We must walk down
+    the Method Resolution Order and concatenate the __slots__ of each
+    class found there.  (This assumes classes don't modify their
+    __slots__ attribute to misrepresent their slots after the class is
+    defined.)
+    &quot;&quot;&quot;
+
+    # Get the value from a cache in the class if possible
+    names = cls.__dict__.get(&quot;__slotnames__&quot;)
+    if names is not None:
+        return names
+
+    # Not cached -- calculate the value
+    names = []
+    if not hasattr(cls, &quot;__slots__&quot;):
+        # This class has no slots
+        pass
+    else:
+        # Slots found -- gather slot names from all base classes
+        for c in cls.__mro__:
+            if &quot;__slots__&quot; in c.__dict__:
+                slots = c.__dict__['__slots__']
+                # if class has a single slot, it can be given as a string
+                if isinstance(slots, str):
+                    slots = (slots,)
+                for name in slots:
+                    # special descriptors
+                    if name in (&quot;__dict__&quot;, &quot;__weakref__&quot;):
+                        continue
+                    # mangled names
+                    elif name.startswith('__') and not name.endswith('__'):
+                        stripped = c.__name__.lstrip('_')
+                        if stripped:
+                            names.append('_%s%s' % (stripped, name))
+                        else:
+                            names.append(name)
+                    else:
+                        names.append(name)
+
+    # Cache the outcome in the class if at all possible
+    try:
+        cls.__slotnames__ = names
+    except:
+        pass # But don't die if we can't
+
+    return names
+
+# A registry of extension codes.  This is an ad-hoc compression
+# mechanism.  Whenever a global reference to &lt;module&gt;, &lt;name&gt; is about
+# to be pickled, the (&lt;module&gt;, &lt;name&gt;) tuple is looked up here to see
+# if it is a registered extension code for it.  Extension codes are
+# universal, so that the meaning of a pickle does not depend on
+# context.  (There are also some codes reserved for local use that
+# don't have this restriction.)  Codes are positive ints; 0 is
+# reserved.
+
+_extension_registry = {}                # key -&gt; code
+_inverted_registry = {}                 # code -&gt; key
+_extension_cache = {}                   # code -&gt; object
+# Don't ever rebind those names:  pickling grabs a reference to them when
+# it's initialized, and won't see a rebinding.
+
+def add_extension(module, name, code):
+    &quot;&quot;&quot;Register an extension code.&quot;&quot;&quot;
+    code = int(code)
+    if not 1 &lt;= code &lt;= 0x7fffffff:
+        raise ValueError(&quot;code out of range&quot;)
+    key = (module, name)
+    if (_extension_registry.get(key) == code and
+        _inverted_registry.get(code) == key):
+        return # Redundant registrations are benign
+    if key in _extension_registry:
+        raise ValueError(&quot;key %s is already registered with code %s&quot; %
+                         (key, _extension_registry[key]))
+    if code in _inverted_registry:
+        raise ValueError(&quot;code %s is already in use for key %s&quot; %
+                         (code, _inverted_registry[code]))
+    _extension_registry[key] = code
+    _inverted_registry[code] = key
+
+def remove_extension(module, name, code):
+    &quot;&quot;&quot;Unregister an extension code.  For testing only.&quot;&quot;&quot;
+    key = (module, name)
+    if (_extension_registry.get(key) != code or
+        _inverted_registry.get(code) != key):
+        raise ValueError(&quot;key %s is not registered with code %s&quot; %
+                         (key, code))
+    del _extension_registry[key]
+    del _inverted_registry[code]
+    if code in _extension_cache:
+        del _extension_cache[code]
+
+def clear_extension_cache():
+    _extension_cache.clear()
+
+# Standard extension code assignments
+
+# Reserved ranges
+
+# First  Last Count  Purpose
+#     1   127   127  Reserved for Python standard library
+#   128   191    64  Reserved for Zope
+#   192   239    48  Reserved for 3rd parties
+#   240   255    16  Reserved for private use (will never be assigned)
+#   256   Inf   Inf  Reserved for future assignment
+
+# Extension codes are assigned by the Python Software Foundation.
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

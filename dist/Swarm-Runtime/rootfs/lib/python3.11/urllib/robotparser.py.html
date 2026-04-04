@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>robotparser.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot; robotparser.py
+
+    Copyright (C) 2000  Bastian Kleineidam
+
+    You can choose between two licenses when using this package:
+    1) GNU GPLv2
+    2) PSF license for Python 2.2
+
+    The robots.txt Exclusion Protocol is implemented as specified in
+    http://www.robotstxt.org/norobots-rfc.txt
+&quot;&quot;&quot;
+
+import collections
+import urllib.parse
+import urllib.request
+
+__all__ = [&quot;RobotFileParser&quot;]
+
+RequestRate = collections.namedtuple(&quot;RequestRate&quot;, &quot;requests seconds&quot;)
+
+
+class RobotFileParser:
+    &quot;&quot;&quot; This class provides a set of methods to read, parse and answer
+    questions about a single robots.txt file.
+
+    &quot;&quot;&quot;
+
+    def __init__(self, url=''):
+        self.entries = []
+        self.sitemaps = []
+        self.default_entry = None
+        self.disallow_all = False
+        self.allow_all = False
+        self.set_url(url)
+        self.last_checked = 0
+
+    def mtime(self):
+        &quot;&quot;&quot;Returns the time the robots.txt file was last fetched.
+
+        This is useful for long-running web spiders that need to
+        check for new robots.txt files periodically.
+
+        &quot;&quot;&quot;
+        return self.last_checked
+
+    def modified(self):
+        &quot;&quot;&quot;Sets the time the robots.txt file was last fetched to the
+        current time.
+
+        &quot;&quot;&quot;
+        import time
+        self.last_checked = time.time()
+
+    def set_url(self, url):
+        &quot;&quot;&quot;Sets the URL referring to a robots.txt file.&quot;&quot;&quot;
+        self.url = url
+        self.host, self.path = urllib.parse.urlparse(url)[1:3]
+
+    def read(self):
+        &quot;&quot;&quot;Reads the robots.txt URL and feeds it to the parser.&quot;&quot;&quot;
+        try:
+            f = urllib.request.urlopen(self.url)
+        except urllib.error.HTTPError as err:
+            if err.code in (401, 403):
+                self.disallow_all = True
+            elif err.code &gt;= 400 and err.code &lt; 500:
+                self.allow_all = True
+        else:
+            raw = f.read()
+            self.parse(raw.decode(&quot;utf-8&quot;).splitlines())
+
+    def _add_entry(self, entry):
+        if &quot;*&quot; in entry.useragents:
+            # the default entry is considered last
+            if self.default_entry is None:
+                # the first default entry wins
+                self.default_entry = entry
+        else:
+            self.entries.append(entry)
+
+    def parse(self, lines):
+        &quot;&quot;&quot;Parse the input lines from a robots.txt file.
+
+        We allow that a user-agent: line is not preceded by
+        one or more blank lines.
+        &quot;&quot;&quot;
+        # states:
+        #   0: start state
+        #   1: saw user-agent line
+        #   2: saw an allow or disallow line
+        state = 0
+        entry = Entry()
+
+        self.modified()
+        for line in lines:
+            if not line:
+                if state == 1:
+                    entry = Entry()
+                    state = 0
+                elif state == 2:
+                    self._add_entry(entry)
+                    entry = Entry()
+                    state = 0
+            # remove optional comment and strip line
+            i = line.find('#')
+            if i &gt;= 0:
+                line = line[:i]
+            line = line.strip()
+            if not line:
+                continue
+            line = line.split(':', 1)
+            if len(line) == 2:
+                line[0] = line[0].strip().lower()
+                line[1] = urllib.parse.unquote(line[1].strip())
+                if line[0] == &quot;user-agent&quot;:
+                    if state == 2:
+                        self._add_entry(entry)
+                        entry = Entry()
+                    entry.useragents.append(line[1])
+                    state = 1
+                elif line[0] == &quot;disallow&quot;:
+                    if state != 0:
+                        entry.rulelines.append(RuleLine(line[1], False))
+                        state = 2
+                elif line[0] == &quot;allow&quot;:
+                    if state != 0:
+                        entry.rulelines.append(RuleLine(line[1], True))
+                        state = 2
+                elif line[0] == &quot;crawl-delay&quot;:
+                    if state != 0:
+                        # before trying to convert to int we need to make
+                        # sure that robots.txt has valid syntax otherwise
+                        # it will crash
+                        if line[1].strip().isdigit():
+                            entry.delay = int(line[1])
+                        state = 2
+                elif line[0] == &quot;request-rate&quot;:
+                    if state != 0:
+                        numbers = line[1].split('/')
+                        # check if all values are sane
+                        if (len(numbers) == 2 and numbers[0].strip().isdigit()
+                            and numbers[1].strip().isdigit()):
+                            entry.req_rate = RequestRate(int(numbers[0]), int(numbers[1]))
+                        state = 2
+                elif line[0] == &quot;sitemap&quot;:
+                    # According to http://www.sitemaps.org/protocol.html
+                    # &quot;This directive is independent of the user-agent line,
+                    #  so it doesn't matter where you place it in your file.&quot;
+                    # Therefore we do not change the state of the parser.
+                    self.sitemaps.append(line[1])
+        if state == 2:
+            self._add_entry(entry)
+
+    def can_fetch(self, useragent, url):
+        &quot;&quot;&quot;using the parsed robots.txt decide if useragent can fetch url&quot;&quot;&quot;
+        if self.disallow_all:
+            return False
+        if self.allow_all:
+            return True
+        # Until the robots.txt file has been read or found not
+        # to exist, we must assume that no url is allowable.
+        # This prevents false positives when a user erroneously
+        # calls can_fetch() before calling read().
+        if not self.last_checked:
+            return False
+        # search for given user agent matches
+        # the first match counts
+        parsed_url = urllib.parse.urlparse(urllib.parse.unquote(url))
+        url = urllib.parse.urlunparse(('','',parsed_url.path,
+            parsed_url.params,parsed_url.query, parsed_url.fragment))
+        url = urllib.parse.quote(url)
+        if not url:
+            url = &quot;/&quot;
+        for entry in self.entries:
+            if entry.applies_to(useragent):
+                return entry.allowance(url)
+        # try the default entry last
+        if self.default_entry:
+            return self.default_entry.allowance(url)
+        # agent not found ==&gt; access granted
+        return True
+
+    def crawl_delay(self, useragent):
+        if not self.mtime():
+            return None
+        for entry in self.entries:
+            if entry.applies_to(useragent):
+                return entry.delay
+        if self.default_entry:
+            return self.default_entry.delay
+        return None
+
+    def request_rate(self, useragent):
+        if not self.mtime():
+            return None
+        for entry in self.entries:
+            if entry.applies_to(useragent):
+                return entry.req_rate
+        if self.default_entry:
+            return self.default_entry.req_rate
+        return None
+
+    def site_maps(self):
+        if not self.sitemaps:
+            return None
+        return self.sitemaps
+
+    def __str__(self):
+        entries = self.entries
+        if self.default_entry is not None:
+            entries = entries + [self.default_entry]
+        return '\n\n'.join(map(str, entries))
+
+
+class RuleLine:
+    &quot;&quot;&quot;A rule line is a single &quot;Allow:&quot; (allowance==True) or &quot;Disallow:&quot;
+       (allowance==False) followed by a path.&quot;&quot;&quot;
+    def __init__(self, path, allowance):
+        if path == '' and not allowance:
+            # an empty value means allow all
+            allowance = True
+        path = urllib.parse.urlunparse(urllib.parse.urlparse(path))
+        self.path = urllib.parse.quote(path)
+        self.allowance = allowance
+
+    def applies_to(self, filename):
+        return self.path == &quot;*&quot; or filename.startswith(self.path)
+
+    def __str__(self):
+        return (&quot;Allow&quot; if self.allowance else &quot;Disallow&quot;) + &quot;: &quot; + self.path
+
+
+class Entry:
+    &quot;&quot;&quot;An entry has one or more user-agents and zero or more rulelines&quot;&quot;&quot;
+    def __init__(self):
+        self.useragents = []
+        self.rulelines = []
+        self.delay = None
+        self.req_rate = None
+
+    def __str__(self):
+        ret = []
+        for agent in self.useragents:
+            ret.append(f&quot;User-agent: {agent}&quot;)
+        if self.delay is not None:
+            ret.append(f&quot;Crawl-delay: {self.delay}&quot;)
+        if self.req_rate is not None:
+            rate = self.req_rate
+            ret.append(f&quot;Request-rate: {rate.requests}/{rate.seconds}&quot;)
+        ret.extend(map(str, self.rulelines))
+        return '\n'.join(ret)
+
+    def applies_to(self, useragent):
+        &quot;&quot;&quot;check if this entry applies to the specified agent&quot;&quot;&quot;
+        # split the name token and make it lower case
+        useragent = useragent.split(&quot;/&quot;)[0].lower()
+        for agent in self.useragents:
+            if agent == '*':
+                # we have the catch-all agent
+                return True
+            agent = agent.lower()
+            if agent in useragent:
+                return True
+        return False
+
+    def allowance(self, filename):
+        &quot;&quot;&quot;Preconditions:
+        - our agent applies to this entry
+        - filename is URL decoded&quot;&quot;&quot;
+        for line in self.rulelines:
+            if line.applies_to(filename):
+                return line.allowance
+        return True
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

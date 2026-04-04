@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>timeit.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">#! /usr/bin/env python3
+
+&quot;&quot;&quot;Tool for measuring execution time of small code snippets.
+
+This module avoids a number of common traps for measuring execution
+times.  See also Tim Peters' introduction to the Algorithms chapter in
+the Python Cookbook, published by O'Reilly.
+
+Library usage: see the Timer class.
+
+Command line usage:
+    python timeit.py [-n N] [-r N] [-s S] [-p] [-h] [--] [statement]
+
+Options:
+  -n/--number N: how many times to execute 'statement' (default: see below)
+  -r/--repeat N: how many times to repeat the timer (default 5)
+  -s/--setup S: statement to be executed once initially (default 'pass').
+                Execution time of this setup statement is NOT timed.
+  -p/--process: use time.process_time() (default is time.perf_counter())
+  -v/--verbose: print raw timing results; repeat for more digits precision
+  -u/--unit: set the output time unit (nsec, usec, msec, or sec)
+  -h/--help: print this usage message and exit
+  --: separate options from statement, use when statement starts with -
+  statement: statement to be timed (default 'pass')
+
+A multi-line statement may be given by specifying each line as a
+separate argument; indented lines are possible by enclosing an
+argument in quotes and using leading spaces.  Multiple -s options are
+treated similarly.
+
+If -n is not given, a suitable number of loops is calculated by trying
+increasing numbers from the sequence 1, 2, 5, 10, 20, 50, ... until the
+total time is at least 0.2 seconds.
+
+Note: there is a certain baseline overhead associated with executing a
+pass statement.  It differs between versions.  The code here doesn't try
+to hide it, but you should be aware of it.  The baseline overhead can be
+measured by invoking the program without arguments.
+
+Classes:
+
+    Timer
+
+Functions:
+
+    timeit(string, string) -&gt; float
+    repeat(string, string) -&gt; list
+    default_timer() -&gt; float
+
+&quot;&quot;&quot;
+
+import gc
+import sys
+import time
+import itertools
+
+__all__ = [&quot;Timer&quot;, &quot;timeit&quot;, &quot;repeat&quot;, &quot;default_timer&quot;]
+
+dummy_src_name = &quot;&lt;timeit-src&gt;&quot;
+default_number = 1000000
+default_repeat = 5
+default_timer = time.perf_counter
+
+_globals = globals
+
+# Don't change the indentation of the template; the reindent() calls
+# in Timer.__init__() depend on setup being indented 4 spaces and stmt
+# being indented 8 spaces.
+template = &quot;&quot;&quot;
+def inner(_it, _timer{init}):
+    {setup}
+    _t0 = _timer()
+    for _i in _it:
+        {stmt}
+        pass
+    _t1 = _timer()
+    return _t1 - _t0
+&quot;&quot;&quot;
+
+def reindent(src, indent):
+    &quot;&quot;&quot;Helper to reindent a multi-line statement.&quot;&quot;&quot;
+    return src.replace(&quot;\n&quot;, &quot;\n&quot; + &quot; &quot;*indent)
+
+class Timer:
+    &quot;&quot;&quot;Class for timing execution speed of small code snippets.
+
+    The constructor takes a statement to be timed, an additional
+    statement used for setup, and a timer function.  Both statements
+    default to 'pass'; the timer function is platform-dependent (see
+    module doc string).  If 'globals' is specified, the code will be
+    executed within that namespace (as opposed to inside timeit's
+    namespace).
+
+    To measure the execution time of the first statement, use the
+    timeit() method.  The repeat() method is a convenience to call
+    timeit() multiple times and return a list of results.
+
+    The statements may contain newlines, as long as they don't contain
+    multi-line string literals.
+    &quot;&quot;&quot;
+
+    def __init__(self, stmt=&quot;pass&quot;, setup=&quot;pass&quot;, timer=default_timer,
+                 globals=None):
+        &quot;&quot;&quot;Constructor.  See class doc string.&quot;&quot;&quot;
+        self.timer = timer
+        local_ns = {}
+        global_ns = _globals() if globals is None else globals
+        init = ''
+        if isinstance(setup, str):
+            # Check that the code can be compiled outside a function
+            compile(setup, dummy_src_name, &quot;exec&quot;)
+            stmtprefix = setup + '\n'
+            setup = reindent(setup, 4)
+        elif callable(setup):
+            local_ns['_setup'] = setup
+            init += ', _setup=_setup'
+            stmtprefix = ''
+            setup = '_setup()'
+        else:
+            raise ValueError(&quot;setup is neither a string nor callable&quot;)
+        if isinstance(stmt, str):
+            # Check that the code can be compiled outside a function
+            compile(stmtprefix + stmt, dummy_src_name, &quot;exec&quot;)
+            stmt = reindent(stmt, 8)
+        elif callable(stmt):
+            local_ns['_stmt'] = stmt
+            init += ', _stmt=_stmt'
+            stmt = '_stmt()'
+        else:
+            raise ValueError(&quot;stmt is neither a string nor callable&quot;)
+        src = template.format(stmt=stmt, setup=setup, init=init)
+        self.src = src  # Save for traceback display
+        code = compile(src, dummy_src_name, &quot;exec&quot;)
+        exec(code, global_ns, local_ns)
+        self.inner = local_ns[&quot;inner&quot;]
+
+    def print_exc(self, file=None):
+        &quot;&quot;&quot;Helper to print a traceback from the timed code.
+
+        Typical use:
+
+            t = Timer(...)       # outside the try/except
+            try:
+                t.timeit(...)    # or t.repeat(...)
+            except:
+                t.print_exc()
+
+        The advantage over the standard traceback is that source lines
+        in the compiled template will be displayed.
+
+        The optional file argument directs where the traceback is
+        sent; it defaults to sys.stderr.
+        &quot;&quot;&quot;
+        import linecache, traceback
+        if self.src is not None:
+            linecache.cache[dummy_src_name] = (len(self.src),
+                                               None,
+                                               self.src.split(&quot;\n&quot;),
+                                               dummy_src_name)
+        # else the source is already stored somewhere else
+
+        traceback.print_exc(file=file)
+
+    def timeit(self, number=default_number):
+        &quot;&quot;&quot;Time 'number' executions of the main statement.
+
+        To be precise, this executes the setup statement once, and
+        then returns the time it takes to execute the main statement
+        a number of times, as a float measured in seconds.  The
+        argument is the number of times through the loop, defaulting
+        to one million.  The main statement, the setup statement and
+        the timer function to be used are passed to the constructor.
+        &quot;&quot;&quot;
+        it = itertools.repeat(None, number)
+        gcold = gc.isenabled()
+        gc.disable()
+        try:
+            timing = self.inner(it, self.timer)
+        finally:
+            if gcold:
+                gc.enable()
+        return timing
+
+    def repeat(self, repeat=default_repeat, number=default_number):
+        &quot;&quot;&quot;Call timeit() a few times.
+
+        This is a convenience function that calls the timeit()
+        repeatedly, returning a list of results.  The first argument
+        specifies how many times to call timeit(), defaulting to 5;
+        the second argument specifies the timer argument, defaulting
+        to one million.
+
+        Note: it's tempting to calculate mean and standard deviation
+        from the result vector and report these.  However, this is not
+        very useful.  In a typical case, the lowest value gives a
+        lower bound for how fast your machine can run the given code
+        snippet; higher values in the result vector are typically not
+        caused by variability in Python's speed, but by other
+        processes interfering with your timing accuracy.  So the min()
+        of the result is probably the only number you should be
+        interested in.  After that, you should look at the entire
+        vector and apply common sense rather than statistics.
+        &quot;&quot;&quot;
+        r = []
+        for i in range(repeat):
+            t = self.timeit(number)
+            r.append(t)
+        return r
+
+    def autorange(self, callback=None):
+        &quot;&quot;&quot;Return the number of loops and time taken so that total time &gt;= 0.2.
+
+        Calls the timeit method with increasing numbers from the sequence
+        1, 2, 5, 10, 20, 50, ... until the time taken is at least 0.2
+        second.  Returns (number, time_taken).
+
+        If *callback* is given and is not None, it will be called after
+        each trial with two arguments: ``callback(number, time_taken)``.
+        &quot;&quot;&quot;
+        i = 1
+        while True:
+            for j in 1, 2, 5:
+                number = i * j
+                time_taken = self.timeit(number)
+                if callback:
+                    callback(number, time_taken)
+                if time_taken &gt;= 0.2:
+                    return (number, time_taken)
+            i *= 10
+
+def timeit(stmt=&quot;pass&quot;, setup=&quot;pass&quot;, timer=default_timer,
+           number=default_number, globals=None):
+    &quot;&quot;&quot;Convenience function to create Timer object and call timeit method.&quot;&quot;&quot;
+    return Timer(stmt, setup, timer, globals).timeit(number)
+
+def repeat(stmt=&quot;pass&quot;, setup=&quot;pass&quot;, timer=default_timer,
+           repeat=default_repeat, number=default_number, globals=None):
+    &quot;&quot;&quot;Convenience function to create Timer object and call repeat method.&quot;&quot;&quot;
+    return Timer(stmt, setup, timer, globals).repeat(repeat, number)
+
+def main(args=None, *, _wrap_timer=None):
+    &quot;&quot;&quot;Main program, used when run as a script.
+
+    The optional 'args' argument specifies the command line to be parsed,
+    defaulting to sys.argv[1:].
+
+    The return value is an exit code to be passed to sys.exit(); it
+    may be None to indicate success.
+
+    When an exception happens during timing, a traceback is printed to
+    stderr and the return value is 1.  Exceptions at other times
+    (including the template compilation) are not caught.
+
+    '_wrap_timer' is an internal interface used for unit testing.  If it
+    is not None, it must be a callable that accepts a timer function
+    and returns another timer function (used for unit testing).
+    &quot;&quot;&quot;
+    if args is None:
+        args = sys.argv[1:]
+    import getopt
+    try:
+        opts, args = getopt.getopt(args, &quot;n:u:s:r:tcpvh&quot;,
+                                   [&quot;number=&quot;, &quot;setup=&quot;, &quot;repeat=&quot;,
+                                    &quot;time&quot;, &quot;clock&quot;, &quot;process&quot;,
+                                    &quot;verbose&quot;, &quot;unit=&quot;, &quot;help&quot;])
+    except getopt.error as err:
+        print(err)
+        print(&quot;use -h/--help for command line help&quot;)
+        return 2
+
+    timer = default_timer
+    stmt = &quot;\n&quot;.join(args) or &quot;pass&quot;
+    number = 0 # auto-determine
+    setup = []
+    repeat = default_repeat
+    verbose = 0
+    time_unit = None
+    units = {&quot;nsec&quot;: 1e-9, &quot;usec&quot;: 1e-6, &quot;msec&quot;: 1e-3, &quot;sec&quot;: 1.0}
+    precision = 3
+    for o, a in opts:
+        if o in (&quot;-n&quot;, &quot;--number&quot;):
+            number = int(a)
+        if o in (&quot;-s&quot;, &quot;--setup&quot;):
+            setup.append(a)
+        if o in (&quot;-u&quot;, &quot;--unit&quot;):
+            if a in units:
+                time_unit = a
+            else:
+                print(&quot;Unrecognized unit. Please select nsec, usec, msec, or sec.&quot;,
+                    file=sys.stderr)
+                return 2
+        if o in (&quot;-r&quot;, &quot;--repeat&quot;):
+            repeat = int(a)
+            if repeat &lt;= 0:
+                repeat = 1
+        if o in (&quot;-p&quot;, &quot;--process&quot;):
+            timer = time.process_time
+        if o in (&quot;-v&quot;, &quot;--verbose&quot;):
+            if verbose:
+                precision += 1
+            verbose += 1
+        if o in (&quot;-h&quot;, &quot;--help&quot;):
+            print(__doc__, end=' ')
+            return 0
+    setup = &quot;\n&quot;.join(setup) or &quot;pass&quot;
+
+    # Include the current directory, so that local imports work (sys.path
+    # contains the directory of this script, rather than the current
+    # directory)
+    import os
+    sys.path.insert(0, os.curdir)
+    if _wrap_timer is not None:
+        timer = _wrap_timer(timer)
+
+    t = Timer(stmt, setup, timer)
+    if number == 0:
+        # determine number so that 0.2 &lt;= total time &lt; 2.0
+        callback = None
+        if verbose:
+            def callback(number, time_taken):
+                msg = &quot;{num} loop{s} -&gt; {secs:.{prec}g} secs&quot;
+                plural = (number != 1)
+                print(msg.format(num=number, s='s' if plural else '',
+                                  secs=time_taken, prec=precision))
+        try:
+            number, _ = t.autorange(callback)
+        except:
+            t.print_exc()
+            return 1
+
+        if verbose:
+            print()
+
+    try:
+        raw_timings = t.repeat(repeat, number)
+    except:
+        t.print_exc()
+        return 1
+
+    def format_time(dt):
+        unit = time_unit
+
+        if unit is not None:
+            scale = units[unit]
+        else:
+            scales = [(scale, unit) for unit, scale in units.items()]
+            scales.sort(reverse=True)
+            for scale, unit in scales:
+                if dt &gt;= scale:
+                    break
+
+        return &quot;%.*g %s&quot; % (precision, dt / scale, unit)
+
+    if verbose:
+        print(&quot;raw times: %s&quot; % &quot;, &quot;.join(map(format_time, raw_timings)))
+        print()
+    timings = [dt / number for dt in raw_timings]
+
+    best = min(timings)
+    print(&quot;%d loop%s, best of %d: %s per loop&quot;
+          % (number, 's' if number != 1 else '',
+             repeat, format_time(best)))
+
+    best = min(timings)
+    worst = max(timings)
+    if worst &gt;= best * 4:
+        import warnings
+        warnings.warn_explicit(&quot;The test results are likely unreliable. &quot;
+                               &quot;The worst time (%s) was more than four times &quot;
+                               &quot;slower than the best time (%s).&quot;
+                               % (format_time(worst), format_time(best)),
+                               UserWarning, '', 0)
+    return None
+
+if __name__ == &quot;__main__&quot;:
+    sys.exit(main())
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

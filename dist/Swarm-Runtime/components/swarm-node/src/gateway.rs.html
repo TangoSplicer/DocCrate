@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gateway.rs</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-rs">use crate::types::*;
+use anyhow::Result;
+use axum::{
+    extract::{Json, Path, State},
+    http::StatusCode,
+    response::Html,
+    routing::{get, post},
+    Router,
+};
+use dashmap::DashMap;
+use ed25519_dalek::{Signer, SigningKey};
+use futures::StreamExt;
+use libp2p::{gossipsub, request_response, swarm::SwarmEvent};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use synapse::{SwarmRequest, SwarmResponse, SynapseBehaviorEvent, SynapseNode};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+pub async fn run_gateway(port: u16, signing_key: SigningKey) -&gt; Result&lt;()&gt; {
+    let mut p2p_node = SynapseNode::new(4000, signing_key.to_bytes()).await?;
+    let _local_peer_id = *p2p_node.swarm.local_peer_id();
+    p2p_node.subscribe(&quot;swarm-control-plane&quot;)?;
+    p2p_node.subscribe(&quot;swarm-gateway-sync&quot;)?;
+    let (tx, mut rx) = tokio::sync::mpsc::channel::&lt;NodeCommand&gt;(1000);
+
+    let jobs = Arc::new(DashMap::new());
+    let stats = Arc::new(Mutex::new(SwarmStatus {
+        version: &quot;0.26.0&quot;.to_string(),
+        role: &quot;GATEWAY&quot;.to_string(),
+        peers_count: 0,
+        peers: HashSet::new(),
+    }));
+    let health_registry = Arc::new(DashMap::new());
+    let pending_dials = Arc::new(DashMap::&lt;libp2p::PeerId, Instant&gt;::new());
+    let telemetry_registry = Arc::new(DashMap::&lt;libp2p::PeerId, Telemetry&gt;::new());
+
+    let contract_states = Arc::new(DashMap::&lt;String, String&gt;::new());
+
+    let shared_state = Arc::new(AppState {
+        node_tx: tx.clone(),
+        jobs: jobs.clone(),
+        stats: stats.clone(),
+        health_registry: health_registry.clone(),
+        pending_dials: pending_dials.clone(),
+        telemetry_registry: telemetry_registry.clone(),
+        signing_key: signing_key.clone(),
+    });
+
+    let (jobs_c, stat_c, health_c, pending_c, tel_c, contract_states_c) = (
+        jobs.clone(),
+        stats.clone(),
+        health_registry.clone(),
+        pending_dials.clone(),
+        telemetry_registry.clone(),
+        contract_states.clone(),
+    );
+
+    tokio::spawn(async move {
+        let mut sla_interval = tokio::time::interval(Duration::from_secs(3));
+        let mut req_to_hash: HashMap&lt;libp2p::request_response::OutboundRequestId, String&gt; =
+            HashMap::new();
+        let mut hash_to_tx: HashMap&lt;String, tokio::sync::oneshot::Sender&lt;Option&lt;Vec&lt;u8&gt;&gt;&gt;&gt; =
+            HashMap::new();
+
+        loop {
+            tokio::select! {
+                            _ = sla_interval.tick() =&gt; {
+                                let mut re_routes = Vec::new();
+                                let mut new_dispatches = Vec::new();
+                                let mut jobs_to_prune = Vec::new();
+
+                                let active_peers: Vec&lt;_&gt; = stat_c.lock().await.peers.iter().copied().collect();
+                                let jobs_snapshot: Vec&lt;(Uuid, Arc&lt;Mutex&lt;JobState&gt;&gt;)&gt; = jobs_c.iter().map(|entry| (*entry.key(), entry.value().clone())).collect();
+
+                                for (job_id, job_arc) in jobs_snapshot {
+                                    let mut job = job_arc.lock().await;
+
+                                    if let Some(dataset) = job.unassigned_dataset.take() {
+                                        if active_peers.is_empty() {
+                                            job.unassigned_dataset = Some(dataset);
+                                            continue;
+                                        }
+            job.redundancy = 2.min(active_peers.len());
+                                        println!(&quot;🧠 SCHEDULER: Optimizing workload with Redundancy Factor {}...&quot;, job.redundancy);
+
+                                        let mut peer_fitness = Vec::new();
+                                        let mut total_fitness = 0.0;
+                                        for peer in &amp;active_peers {
+                                            let fitness = if let Some(tel) = tel_c.get(peer) {
+                                                (tel.free_ram_mb as f32) / (tel.cpu_usage + 1.0)
+                                            } else { 1.0 };
+                                            peer_fitness.push((*peer, fitness));
+                                            total_fitness += fitness;
+                                        }
+
+                                        peer_fitness.sort_by(|a, b| b.1.partial_cmp(&amp;a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                                        let is_stateful = !job.wasm_image.is_empty() &amp;&amp; job.wasm_image != b&quot;NONE&quot;;
+
+                                        if is_stateful {
+                                            job.expected_shards = 1;
+
+                                            let mut hasher = Sha256::new();
+                                            hasher.update(&amp;job.wasm_image);
+                                            let contract_key = hex::encode(hasher.finalize());
+
+                                            let mut out_wasm_image = job.wasm_image.clone();
+                                            if let Some(latest_state) = contract_states_c.get(&amp;contract_key) {
+                                                let mut final_wasm = out_wasm_image.clone(); final_wasm.extend_from_slice(b&quot;|STATE:&quot;); final_wasm.extend_from_slice(latest_state.value().as_bytes()); out_wasm_image = final_wasm;
+                                            }
+
+                                            let primary_peer = peer_fitness[0].0;
+                                            let shard = Shard {
+                                                parent_task_id: job_id,
+                                                shard_index: 0,
+                                                total_shards: 1,
+                                                data: dataset.clone(),
+                                                wasm_image: out_wasm_image,
+                                                target_peer: Some(primary_peer.to_string()),
+                                            };
+
+                                            let mut peer_assignments = HashMap::new();
+                                            peer_assignments.insert(primary_peer, Instant::now());
+                                            new_dispatches.push((primary_peer, shard.clone()));
+
+                                            if job.redundancy &gt; 1 &amp;&amp; peer_fitness.len() &gt; 1 {
+                                                let secondary_peer = peer_fitness[1].0;
+                                                peer_assignments.insert(secondary_peer, Instant::now());
+                                                new_dispatches.push((secondary_peer, shard.clone()));
+                                            }
+
+                                            job.shards_data.insert(0, shard.clone());
+                                            job.assignments.insert(0, peer_assignments);
+
+                                        } else {
+                                            job.expected_shards = active_peers.len();
+                                            let mut start_idx = 0;
+
+                                            for (i, (primary_peer, fitness)) in peer_fitness.iter().enumerate() {
+                                                if start_idx &gt;= dataset.len() { break; }
+
+                                                let weight = fitness / total_fitness;
+                                                let mut chunk_size = (dataset.len() as f32 * weight).floor() as usize;
+
+                                                if chunk_size == 0 &amp;&amp; dataset.len() &gt;= active_peers.len() { chunk_size = 1; }
+                                                if i == active_peers.len() - 1 { chunk_size = dataset.len() - start_idx; }
+                                                if start_idx + chunk_size &gt; dataset.len() { chunk_size = dataset.len() - start_idx; }
+
+                                                let chunk = &amp;dataset[start_idx..start_idx + chunk_size];
+                                                start_idx += chunk_size;
+
+                                                let shard = Shard {
+                                                    parent_task_id: job_id,
+                                                    shard_index: i as u32,
+                                                    total_shards: active_peers.len() as u32,
+                                                    data: chunk.to_vec(),
+                                                    wasm_image: job.wasm_image.clone(),
+                                                    target_peer: Some(primary_peer.to_string()),
+                                                };
+
+                                                let mut peer_assignments = HashMap::new();
+
+            peer_assignments.insert(*primary_peer, Instant::now());
+                                                new_dispatches.push((*primary_peer, shard.clone()));
+
+                                                if job.redundancy &gt; 1 {
+                                                    let secondary_peer = peer_fitness[(i + 1) % peer_fitness.len()].0;
+                                                    peer_assignments.insert(secondary_peer, Instant::now());
+                                                    new_dispatches.push((secondary_peer, shard.clone()));
+                                                }
+
+                                                job.shards_data.insert(i as u32, shard.clone());
+                                                job.assignments.insert(i as u32, peer_assignments);
+                                            }
+                                        }
+                                        continue;
+                                    }
+
+                                    let is_complete = job.verified_results.len() &gt;= job.expected_shards;
+                                    if is_complete {
+                                        if job.created_at.elapsed() &gt; Duration::from_secs(300) { jobs_to_prune.push(job_id); }
+                                        continue;
+                                    }
+
+                                    for shard_idx in 0..(job.expected_shards as u32) {
+                                        if job.verified_results.contains_key(&amp;shard_idx) { continue; }
+                                        let mut failed_peers = Vec::new();
+
+                                        if let Some(peer_assignments) = job.assignments.get(&amp;shard_idx) {
+                                            for (peer, start_time) in peer_assignments {
+                                                if start_time.elapsed() &gt; Duration::from_secs(15) {
+                                                    let has_result = job.raw_results.get(&amp;shard_idx).is_some_and(|r| r.contains_key(peer));
+                                                    if !has_result {
+                                                        println!(&quot;⏰ SLA Timeout: Peer {} dropped Shard {}. Re-routing...&quot;, peer, shard_idx);
+                                                        failed_peers.push(*peer);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        for failed_peer in failed_peers {
+                                            if let Some(shard_data) = job.shards_data.get(&amp;shard_idx).cloned() {
+                                                let current_assignees: HashSet&lt;_&gt; = job.assignments.get(&amp;shard_idx).unwrap().keys().cloned().collect();
+                                                let idle_peer = active_peers.iter().find(|&amp;&amp;p| !current_assignees.contains(&amp;p)).copied();
+
+                                                if let Some(new_peer) = idle_peer {
+                                                    let assignments = job.assignments.get_mut(&amp;shard_idx).unwrap();
+                                                    assignments.remove(&amp;failed_peer);
+                                                    assignments.insert(new_peer, Instant::now());
+                                                    re_routes.push((new_peer, shard_data));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                for id in jobs_to_prune {
+                                    jobs_c.remove(&amp;id);
+                                    println!(&quot;🧹 GC: Pruned completed job {}.&quot;, id);
+                                }
+
+                                for (peer, shard) in new_dispatches.into_iter().chain(re_routes) {
+                                    let payload_json = serde_json::to_string(&amp;shard).unwrap();
+                                    let expires_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 60;
+                                    let message_to_sign = format!(&quot;{}:{}&quot;, payload_json, expires_at);
+                                    let signature = signing_key.sign(message_to_sign.as_bytes());
+
+                                    let signed_payload = SignedPayload { payload_json, expires_at, signature: signature.to_bytes().to_vec() };
+                                    let req = SwarmRequest::DispatchShard(serde_json::to_string(&amp;signed_payload).unwrap());
+
+                                    if let Err(e) = tx.try_send(NodeCommand::Unicast(peer, req)) {
+                                        eprintln!(&quot;⚠️ BACKPRESSURE ALARM: Failed to send DispatchShard: {}&quot;, e);
+                                    }
+                                }
+                            },
+                            Some(cmd) = rx.recv() =&gt; {
+                                match cmd {
+                                    NodeCommand::Unicast(peer, req) =&gt; { let _ = p2p_node.send_request(&amp;peer, req); },
+                                    NodeCommand::GatewaySync(msg) =&gt; { let _ = p2p_node.publish_to_topic(&quot;swarm-gateway-sync&quot;, msg); },
+                                    NodeCommand::Disconnect(peer) =&gt; { let _ = p2p_node.swarm.disconnect_peer_id(peer); },
+                                    NodeCommand::FetchFile(hash, reply_tx) =&gt; {
+                                        let peers = stat_c.lock().await.peers.clone();
+                                        hash_to_tx.insert(hash.clone(), reply_tx);
+                                        for peer in peers {
+                                            let req_id = p2p_node.send_request(&amp;peer, SwarmRequest::FetchData(hash.clone()));
+                                            req_to_hash.insert(req_id, hash.clone());
+                                        }
+                                    }
+                                }
+                            },
+                            event = p2p_node.swarm.select_next_some() =&gt; {
+                                match event {
+                                    SwarmEvent::Behaviour(SynapseBehaviorEvent::Gossipsub(gossipsub::Event::Message { message, .. })) =&gt; {
+                                        let text = String::from_utf8_lossy(&amp;message.data);
+                                        if let Some(stripped) = text.strip_prefix(&quot;SYNC_STATE:&quot;) {
+                                        let payload = stripped.to_string();
+                                            let cs_clone = contract_states_c.clone();
+                                            tokio::spawn(async move {
+                                                if let Ok(parsed) = serde_json::from_str::&lt;serde_json::Value&gt;(&amp;payload) {
+                                                    if let (Some(k), Some(v)) = (parsed.get(&quot;k&quot;).and_then(|v| v.as_str()), parsed.get(&quot;v&quot;).and_then(|v| v.as_str())) {
+                                                        cs_clone.insert(k.to_string(), v.to_string());
+                                                        println!(&quot;🔄 FEDERATION: Synced State Hash [{}] from Peer Gateway&quot;, &amp;v[..8]);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                        if let Some(stripped) = text.strip_prefix(&quot;TEL:&quot;) {
+                                        if let Ok(tel) = serde_json::from_str::&lt;Telemetry&gt;(stripped) {
+                                                if let Ok(peer) = tel.peer_id.parse::&lt;libp2p::PeerId&gt;() {
+                                                    tel_c.insert(peer, tel);
+                                                }
+                                            }
+                                        }
+                                    },
+
+                                    SwarmEvent::Behaviour(SynapseBehaviorEvent::ReqRes(request_response::Event::Message { peer, message })) =&gt; {
+                                        if let request_response::Message::Response { request_id, response } = message {
+                                            if let Some(hash) = req_to_hash.remove(&amp;request_id) {
+                                                if let SwarmResponse::DataPayload(bytes) = response {
+                                                    if let Some(tx) = hash_to_tx.remove(&amp;hash) {
+                                                        let _ = tx.send(Some(bytes));
+                                                    }
+                                                }
+                                            }
+                                        } else if let request_response::Message::Request { request: SwarmRequest::SubmitResult(json_payload), channel, .. } = message {
+                                            let _ = p2p_node.swarm.behaviour_mut().req_res.send_response(channel, SwarmResponse::Ack);
+
+                                            let jobs_clone = jobs_c.clone();
+                                            let health_clone = health_c.clone();
+                                            let contract_states_clone = contract_states_c.clone();
+                                            let tx_clone = tx.clone();
+                                            // PHASE 14 &amp; THE TOKIO ASYNC LAW:
+                                            // Offloading strict lock operations to a dedicated spawned task prevents blocking the Libp2p loop
+                                            tokio::spawn(async move {
+                                                if let Ok(res_data) = serde_json::from_str::&lt;ShardResult&gt;(&amp;json_payload) {
+                                                    health_clone.remove(&amp;peer);
+
+                                                    let job_arc_opt = jobs_clone.get(&amp;res_data.job_id).map(|ref_val| ref_val.value().clone());
+
+                                                    if let Some(job_arc) = job_arc_opt {
+                                                        let mut guard = job_arc.lock().await;
+
+                                                        if guard.verified_results.contains_key(&amp;res_data.shard_index) { return; }
+
+                                                        let is_consensus_ready = {
+                                                            let shard_results = guard.raw_results.entry(res_data.shard_index).or_insert_with(HashMap::new);
+                                                            shard_results.insert(peer, (res_data.result, res_data.result_hash.clone(), res_data.state_delta.clone(), res_data.execution_timestamp));
+
+                                                            let display_hash = if res_data.result_hash.len() &gt;= 8 { &amp;res_data.result_hash[..8] } else { &amp;res_data.result_hash };
+                                                            println!(&quot;📩 Received Result Hash: [{}] from {}&quot;, display_hash, peer);
+
+                                                            shard_results.len() &gt;= guard.redundancy
+                                                        };
+
+                                                        if is_consensus_ready {
+                                                            if let Some(shard_results) = guard.raw_results.remove(&amp;res_data.shard_index) {
+                                                                // BFT Deduplication based strictly on matching results &amp; hashes
+                                                                let mut unique_hashes: HashMap&lt;String, (i32, String, BTreeMap&lt;String, String&gt;, u64)&gt; = HashMap::new();
+                                                                for (r, h, d, ts) in shard_results.values() {
+                                                                    unique_hashes.insert(h.clone(), (*r, h.clone(), d.clone(), *ts));
+                                                                }
+
+                                                                if unique_hashes.len() == 1 {
+                                                                    let (_, (final_result, final_hash, final_delta, final_ts)) = unique_hashes.into_iter().next().unwrap();
+
+                                                                    let final_display = if final_hash.len() &gt;= 8 { &amp;final_hash[..8] } else { &amp;final_hash };
+                                                                    println!(&quot;✅ HASH CONSENSUS REACHED: Shard {} state verified [{}]&quot;, res_data.shard_index, final_display);
+
+                                                                    guard.verified_results.insert(res_data.shard_index, (final_result, final_hash.clone(), final_delta, final_ts));
+
+                                                                    // PHASE 14: MULTI-SHARD HYBRID CRDT MERGE
+                                                                    if guard.verified_results.len() == guard.expected_shards {
+                                                                        println!(&quot;🌐 ALL SHARDS VERIFIED! Initiating Phase 14 Multi-Shard State Merge...&quot;);
+
+                                                                        let mut master_state: BTreeMap&lt;String, String&gt; = BTreeMap::new();
+                                                                        let mut key_timestamps: HashMap&lt;String, u64&gt; = HashMap::new();
+
+                                                                        for (_, _, delta, ts) in guard.verified_results.values() {
+                                                                            for (k, v) in delta {
+                                                                                if let Some(existing_v) = master_state.get(k) {
+                                                                                    // Commutative Addition for numerics
+                                                                                    if let (Ok(ex_i64), Ok(new_i64)) = (existing_v.parse::&lt;i64&gt;(), v.parse::&lt;i64&gt;()) {
+                                                                                        master_state.insert(k.clone(), (ex_i64 + new_i64).to_string());
+                                                                                    }
+                                                                                    else if let (Ok(ex_f64), Ok(new_f64)) = (existing_v.parse::&lt;f64&gt;(), v.parse::&lt;f64&gt;()) {
+                                                                                        master_state.insert(k.clone(), (ex_f64 + new_f64).to_string());
+                                                                                    }
+                                                                                    // Last-Write-Wins for strings/objects
+                                                                                    else {
+                                                                                        let existing_ts = key_timestamps.get(k).copied().unwrap_or(0);
+                                                                                        if *ts &gt; existing_ts {
+                                                                                            master_state.insert(k.clone(), v.clone());
+                                                                                            key_timestamps.insert(k.clone(), *ts);
+                                                                                        }
+                                                                                    }
+                                                                                } else {
+                                                                                    master_state.insert(k.clone(), v.clone());
+                                                                                    key_timestamps.insert(k.clone(), *ts);
+                                                                                }
+                                                                            }
+                                                                        }
+
+                                                                        // Generate Deterministic Canonical Zero-Whitespace Hash
+                                                                        let merged_json = serde_json::to_string(&amp;master_state).unwrap();
+                                                                        let mut hasher = Sha256::new();
+                                                                        hasher.update(merged_json.as_bytes());
+                                                                        let final_master_hash = hex::encode(hasher.finalize());
+
+                                                                        println!(&quot;🚀 PHASE 14 MERGE COMPLETE: Master State Hash -&gt; [{}]&quot;, final_master_hash);
+                                                                        guard.master_state_hash = Some(final_master_hash.clone());
+
+                                                                        let is_stateful = !guard.wasm_image.is_empty() &amp;&amp; guard.wasm_image != b&quot;NONE&quot;;
+                                                                        if is_stateful {
+                                                                            let mut img_hasher = Sha256::new();
+                                                                            img_hasher.update(&amp;guard.wasm_image);
+                                                                            let contract_key = hex::encode(img_hasher.finalize());
+
+                                                                            contract_states_clone.insert(contract_key.clone(), final_master_hash.clone());
+                                                                            let sync_msg = format!(&quot;SYNC_STATE:{{\&quot;k\&quot;:\&quot;{}\&quot;,\&quot;v\&quot;:\&quot;{}\&quot;}}&quot;, contract_key, final_master_hash);
+
+                                                                            if let Err(e) = tx_clone.try_send(NodeCommand::GatewaySync(sync_msg)) {
+                                                                                eprintln!(&quot;⚠️ BACKPRESSURE ALARM: Failed to send GatewaySync: {}&quot;, e);
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    println!(&quot;🚨 HASH COLLISION DETECTED! State mutation mismatch on Shard {}.&quot;, res_data.shard_index);
+                                                                    for p in shard_results.keys() {
+                                                                        if let Err(e) = tx_clone.try_send(NodeCommand::Disconnect(*p)) {
+                                                                            eprintln!(&quot;⚠️ BACKPRESSURE ALARM: Failed to send Disconnect: {}&quot;, e);
+                                                                        }
+                                                                    }
+                                                                    guard.assignments.remove(&amp;res_data.shard_index);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    },
+                                    SwarmEvent::ConnectionEstablished { peer_id, .. } =&gt; {
+                                        let mut s = stat_c.lock().await;
+                                        if s.peers.insert(peer_id) { s.peers_count = s.peers.len(); println!(&quot;📡 CONNECTED: {}&quot;, peer_id); }
+                                        pending_c.remove(&amp;peer_id);
+                                    },
+                                    SwarmEvent::ConnectionClosed { peer_id, .. } =&gt; {
+                                        let mut s = stat_c.lock().await;
+                                        if s.peers.remove(&amp;peer_id) {
+                                            s.peers_count = s.peers.len();
+                                            println!(&quot;📉 DISCONNECTED: {}&quot;, peer_id);
+                                        }
+                                        tel_c.remove(&amp;peer_id);
+                                    },
+                                    _ =&gt; {}
+                                }
+                            }
+                        }
+        }
+    });
+
+    let app = Router::new()
+        .route(&quot;/&quot;, get(dashboard))
+        .route(&quot;/api/v1/jobs&quot;, post(submit_job))
+        .route(&quot;/api/v1/jobs/:id&quot;, get(get_job_status))
+        .route(&quot;/api/v1/data/:hash&quot;, get(fetch_data))
+        .layer(axum::extract::DefaultBodyLimit::max(50_000_000))
+        .with_state(shared_state);
+
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+    println!(&quot;Gateway Active: http://localhost:{}&quot;, port);
+    axum::Server::bind(&amp;addr)
+        .serve(app.into_make_service())
+        .await?;
+
+    Ok(())
+}
+
+async fn submit_job(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    mut multipart: axum::extract::Multipart,
+) -&gt; (StatusCode, Json&lt;JobSubmitResponse&gt;) {
+    let task_id = Uuid::new_v4();
+    let mut wasm_bytes = Vec::new();
+    let mut dataset = Vec::new();
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let name = field.name().unwrap_or(&quot;&quot;).to_string();
+        if name == &quot;wasm&quot; {
+            if let Ok(data) = field.bytes().await {
+                wasm_bytes = data.to_vec();
+            }
+        } else if name == &quot;metadata&quot; {
+            if let Ok(data) = field.bytes().await {
+                let text = String::from_utf8_lossy(&amp;data);
+                if let Ok(payload) = serde_json::from_str::&lt;ShardedDeployRequest&gt;(&amp;text) {
+                    dataset = payload.dataset;
+                }
+            }
+        }
+    }
+
+    let job_state = JobState {
+        expected_shards: 0,
+        redundancy: 2,
+        raw_results: HashMap::new(),
+        verified_results: HashMap::new(),
+        master_state_hash: None,
+        created_at: Instant::now(),
+        assignments: HashMap::new(),
+        shards_data: HashMap::new(),
+        unassigned_dataset: Some(dataset.clone()),
+        wasm_image: wasm_bytes,
+    };
+
+    state.jobs.insert(task_id, Arc::new(Mutex::new(job_state)));
+
+    println!(
+        &quot;📥 Job Queued: {} with {} Complex Items&quot;,
+        task_id,
+        dataset.len()
+    );
+
+    (
+        StatusCode::ACCEPTED,
+        Json(JobSubmitResponse {
+            job_id: task_id.to_string(),
+            status: &quot;pending_scheduler&quot;.to_string(),
+        }),
+    )
+}
+
+async fn get_job_status(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Path(id): Path&lt;Uuid&gt;,
+) -&gt; (StatusCode, Json&lt;JobStatusResponse&gt;) {
+    let job_arc_opt = state.jobs.get(&amp;id).map(|r| r.value().clone());
+
+    if let Some(job_arc) = job_arc_opt {
+        let guard = job_arc.lock().await;
+
+        if guard.unassigned_dataset.is_some() {
+            return (
+                StatusCode::ACCEPTED,
+                Json(JobStatusResponse {
+                    status: &quot;awaiting_telemetry&quot;.to_string(),
+                    total_sum: 0,
+                    breakdown: vec![],
+                    hashes: vec![],
+                    missing_shards: vec![],
+                    master_state_hash: None,
+                }),
+            );
+        }
+
+        let is_complete = guard.verified_results.len() &gt;= guard.expected_shards;
+        let sum: i32 = guard.verified_results.values().map(|v| v.0).sum();
+
+        let breakdown: Vec&lt;(u32, i32)&gt; = guard
+            .verified_results
+            .iter()
+            .map(|(k, v)| (*k, v.0))
+            .collect();
+        let hashes: Vec&lt;(u32, String)&gt; = guard
+            .verified_results
+            .iter()
+            .map(|(k, v)| (*k, v.1.clone()))
+            .collect();
+
+        let received_indices: HashSet&lt;u32&gt; = guard.verified_results.keys().copied().collect();
+        let missing_indices: Vec&lt;u32&gt; = (0..guard.expected_shards as u32)
+            .filter(|i| !received_indices.contains(i))
+            .collect();
+
+        if is_complete {
+            (
+                StatusCode::OK,
+                Json(JobStatusResponse {
+                    status: &quot;completed&quot;.to_string(),
+                    total_sum: sum,
+                    breakdown,
+                    hashes,
+                    missing_shards: vec![],
+                    master_state_hash: guard.master_state_hash.clone(),
+                }),
+            )
+        } else {
+            (
+                StatusCode::PARTIAL_CONTENT,
+                Json(JobStatusResponse {
+                    status: &quot;partial&quot;.to_string(),
+                    total_sum: sum,
+                    breakdown,
+                    hashes,
+                    missing_shards: missing_indices,
+                    master_state_hash: guard.master_state_hash.clone(),
+                }),
+            )
+        }
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(JobStatusResponse {
+                status: &quot;not_found&quot;.to_string(),
+                total_sum: 0,
+                breakdown: vec![],
+                hashes: vec![],
+                missing_shards: vec![],
+                master_state_hash: None,
+            }),
+        )
+    }
+}
+
+async fn dashboard(State(_state): State&lt;Arc&lt;AppState&gt;&gt;) -&gt; Html&lt;String&gt; {
+    Html(
+        r#&quot;
+        &lt;div style=&quot;font-family: sans-serif; padding: 2rem;&quot;&gt;
+            &lt;h1&gt;🐝 Swarm Runtime Gateway&lt;/h1&gt;
+            &lt;p&gt;&lt;strong&gt;Version:&lt;/strong&gt; v0.26.0 (Enterprise Federation)&lt;/p&gt;
+        &lt;/div&gt;
+    &quot;#
+        .to_string(),
+    )
+}
+
+async fn fetch_data(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Path(hash): Path&lt;String&gt;,
+) -&gt; (StatusCode, Vec&lt;u8&gt;) {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    if let Err(e) = state
+        .node_tx
+        .try_send(NodeCommand::FetchFile(hash.clone(), tx))
+    {
+        eprintln!(&quot;⚠️ BACKPRESSURE ALARM: Failed to send FetchFile: {}&quot;, e);
+    }
+
+    match tokio::time::timeout(std::time::Duration::from_secs(15), rx).await {
+        Ok(Ok(Some(bytes))) =&gt; (StatusCode::OK, bytes),
+        _ =&gt; (StatusCode::NOT_FOUND, b&quot;File not found on network&quot;.to_vec()),
+    }
+}
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

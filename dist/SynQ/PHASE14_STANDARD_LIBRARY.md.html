@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHASE14_STANDARD_LIBRARY.md</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <h1>Phase 14: Standard Library Expansion</h1>
+<h2>Executive Summary</h2>
+<p>Phase 14 expands SynQ's standard library from ~150 functions to 500+ functions, covering all major programming domains. This phase makes SynQ a complete, batteries-included language suitable for any use case without requiring external dependencies.</p>
+<p><strong>Goals:</strong></p>
+<ul>
+<li>Implement 500+ standard library functions</li>
+<li>Cover all major programming domains (collections, I/O, networking, concurrency, ML, quantum, data processing)</li>
+<li>Provide consistent, intuitive APIs</li>
+<li>Achieve performance parity with specialized libraries</li>
+<li>Maintain comprehensive documentation</li>
+</ul>
+<p><strong>Success Metrics:</strong></p>
+<ul>
+<li>500+ functions implemented and tested</li>
+<li>95%+ test coverage</li>
+<li>Performance within 10% of specialized libraries</li>
+<li>Comprehensive documentation with examples</li>
+<li>Zero external dependencies for core functionality</li>
+</ul>
+<hr />
+<h2>Current State Analysis</h2>
+<h3>Existing Standard Library</h3>
+<p>Current SynQ (Phase 1-10) provides ~150 functions:</p>
+<ul>
+<li>Basic types (i32, i64, f64, str, bool)</li>
+<li>Collections (Array, HashMap, HashSet)</li>
+<li>I/O (print, read)</li>
+<li>Math (sin, cos, sqrt, etc.)</li>
+<li>Quantum (circuit operations, gates)</li>
+<li>ML (basic neural network operations)</li>
+</ul>
+<h3>Phase 14 Expansion</h3>
+<p>Target: 500+ functions across 15+ categories</p>
+<hr />
+<h2>Phase 14 Architecture</h2>
+<h3>1. Collections &amp; Data Structures</h3>
+<p><strong>Objective:</strong> Comprehensive collection types with efficient implementations.</p>
+<p><strong>Core Collections:</strong></p>
+<pre><code class="language-synq">// Vector (dynamic array)
+let mut v = Vec::new();
+v.push(1);
+v.push(2);
+let first = v.get(0);  // Option&lt;i32&gt;
+let len = v.len();
+
+// HashMap (hash table)
+let mut map = HashMap::new();
+map.insert(&quot;key&quot;, &quot;value&quot;);
+let value = map.get(&quot;key&quot;);  // Option&lt;str&gt;
+map.remove(&quot;key&quot;);
+
+// HashSet (unique values)
+let mut set = HashSet::new();
+set.insert(1);
+set.insert(2);
+let contains = set.contains(1);  // true
+
+// LinkedList (doubly-linked list)
+let mut list = LinkedList::new();
+list.push_back(1);
+list.push_front(0);
+let front = list.pop_front();  // Option&lt;i32&gt;
+
+// BTreeMap (sorted map)
+let mut map = BTreeMap::new();
+map.insert(3, &quot;c&quot;);
+map.insert(1, &quot;a&quot;);
+map.insert(2, &quot;b&quot;);
+let range = map.range(1..3);  // Iterate 1..3
+
+// BTreeSet (sorted set)
+let mut set = BTreeSet::new();
+set.insert(3);
+set.insert(1);
+set.insert(2);
+let range = set.range(1..3);  // Iterate 1..3
+
+// Deque (double-ended queue)
+let mut deque = Deque::new();
+deque.push_back(1);
+deque.push_front(0);
+let front = deque.pop_front();  // Option&lt;i32&gt;
+let back = deque.pop_back();    // Option&lt;i32&gt;
+
+// PriorityQueue (heap)
+let mut pq = PriorityQueue::new();
+pq.push(3);
+pq.push(1);
+pq.push(2);
+let max = pq.pop();  // Some(3)
+
+// Trie (prefix tree)
+let mut trie = Trie::new();
+trie.insert(&quot;hello&quot;);
+trie.insert(&quot;help&quot;);
+let words = trie.autocomplete(&quot;hel&quot;);  // [&quot;hello&quot;, &quot;help&quot;]
+
+// Graph (adjacency list)
+let mut graph = Graph::new();
+graph.add_edge(0, 1);
+graph.add_edge(1, 2);
+let neighbors = graph.neighbors(0);  // [1]
+
+// UnionFind (disjoint set)
+let mut uf = UnionFind::new(5);
+uf.union(0, 1);
+uf.union(1, 2);
+let connected = uf.find(0) == uf.find(2);  // true
+</code></pre>
+<p><strong>Implementation Details:</strong></p>
+<p>| Collection | Time Complexity | Space | Use Case |
+|---|---|---|---|
+| <strong>Vec</strong> | O(1) amortized push | O(n) | Dynamic arrays |
+| <strong>HashMap</strong> | O(1) avg get/insert | O(n) | Key-value lookup |
+| <strong>HashSet</strong> | O(1) avg insert | O(n) | Unique values |
+| <strong>LinkedList</strong> | O(1) push/pop ends | O(n) | Frequent insertions |
+| <strong>BTreeMap</strong> | O(log n) get/insert | O(n) | Sorted iteration |
+| <strong>BTreeSet</strong> | O(log n) insert | O(n) | Sorted unique values |
+| <strong>Deque</strong> | O(1) push/pop ends | O(n) | Double-ended queue |
+| <strong>PriorityQueue</strong> | O(log n) push/pop | O(n) | Priority ordering |
+| <strong>Trie</strong> | O(k) insert/search | O(nk) | Prefix matching |
+| <strong>Graph</strong> | O(1) edge lookup | O(V+E) | Graph algorithms |</p>
+<h3>2. String &amp; Text Processing</h3>
+<p><strong>Objective:</strong> Comprehensive string manipulation and text processing.</p>
+<pre><code class="language-synq">// String creation and manipulation
+let s = &quot;hello&quot;;
+let s2 = &quot;world&quot;;
+let combined = s + &quot; &quot; + s2;  // &quot;hello world&quot;
+
+// String methods
+let upper = s.to_uppercase();  // &quot;HELLO&quot;
+let lower = s.to_lowercase();  // &quot;hello&quot;
+let trimmed = &quot;  hello  &quot;.trim();  // &quot;hello&quot;
+let split = &quot;a,b,c&quot;.split(&quot;,&quot;);  // [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]
+let joined = [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;].join(&quot;,&quot;);  // &quot;a,b,c&quot;
+
+// String searching
+let index = s.find(&quot;ll&quot;);  // Some(2)
+let contains = s.contains(&quot;ell&quot;);  // true
+let starts = s.starts_with(&quot;he&quot;);  // true
+let ends = s.ends_with(&quot;lo&quot;);  // true
+
+// String replacement
+let replaced = s.replace(&quot;ll&quot;, &quot;LL&quot;);  // &quot;heLLo&quot;
+let replaced_all = s.replace_all(&quot;l&quot;, &quot;L&quot;);  // &quot;heLLo&quot;
+
+// String parsing
+let num = &quot;42&quot;.parse::&lt;i32&gt;();  // Ok(42)
+let float = &quot;3.14&quot;.parse::&lt;f64&gt;();  // Ok(3.14)
+
+// Regular expressions
+let regex = Regex::new(r&quot;^[a-z]+$&quot;);
+let matches = regex.matches(&quot;hello&quot;);  // true
+let captures = regex.captures(&quot;hello123&quot;);  // [&quot;hello&quot;]
+
+// String formatting
+let formatted = format!(&quot;Hello, {}!&quot;, &quot;World&quot;);  // &quot;Hello, World!&quot;
+let formatted2 = format!(&quot;{:?}&quot;, [1, 2, 3]);  // &quot;[1, 2, 3]&quot;
+
+// Unicode support
+let chars = &quot;hello&quot;.chars();  // ['h', 'e', 'l', 'l', 'o']
+let bytes = &quot;hello&quot;.bytes();  // [104, 101, 108, 108, 111]
+let len_chars = &quot;hello&quot;.len_chars();  // 5
+let len_bytes = &quot;hello&quot;.len_bytes();  // 5
+</code></pre>
+<h3>3. File I/O &amp; Filesystem</h3>
+<p><strong>Objective:</strong> Complete file and filesystem operations.</p>
+<pre><code class="language-synq">// File operations
+let file = File::open(&quot;data.txt&quot;);  // Result&lt;File, Error&gt;
+let contents = file.read_to_string();  // Result&lt;String, Error&gt;
+let lines = file.read_lines();  // Iterator&lt;String&gt;
+
+// Writing files
+let mut file = File::create(&quot;output.txt&quot;);  // Result&lt;File, Error&gt;
+file.write(&quot;Hello, World!&quot;);
+file.flush();
+
+// Directory operations
+let entries = fs::read_dir(&quot;.&quot;);  // Iterator&lt;DirEntry&gt;
+for entry in entries {
+    let path = entry.path();
+    let is_dir = entry.is_dir();
+    let is_file = entry.is_file();
+}
+
+// Path manipulation
+let path = Path::new(&quot;dir/file.txt&quot;);
+let parent = path.parent();  // &quot;dir&quot;
+let file_name = path.file_name();  // &quot;file.txt&quot;
+let extension = path.extension();  // &quot;txt&quot;
+let stem = path.stem();  // &quot;file&quot;
+
+// Filesystem queries
+let exists = fs::exists(&quot;file.txt&quot;);  // bool
+let is_file = fs::is_file(&quot;file.txt&quot;);  // bool
+let is_dir = fs::is_dir(&quot;dir&quot;);  // bool
+let metadata = fs::metadata(&quot;file.txt&quot;);  // Metadata
+let size = metadata.len();  // u64
+let modified = metadata.modified();  // SystemTime
+
+// File copying and moving
+fs::copy(&quot;src.txt&quot;, &quot;dst.txt&quot;);
+fs::rename(&quot;old.txt&quot;, &quot;new.txt&quot;);
+fs::remove_file(&quot;file.txt&quot;);
+fs::create_dir(&quot;new_dir&quot;);
+fs::remove_dir(&quot;empty_dir&quot;);
+fs::remove_dir_all(&quot;dir_with_contents&quot;);
+
+// Temporary files
+let temp = TempFile::new();  // Auto-deleted on drop
+temp.write(&quot;temporary data&quot;);
+</code></pre>
+<h3>4. Networking &amp; HTTP</h3>
+<p><strong>Objective:</strong> Complete networking stack.</p>
+<pre><code class="language-synq">// TCP networking
+let listener = TcpListener::bind(&quot;127.0.0.1:8080&quot;);
+for stream in listener.incoming() {
+    let mut stream = stream;
+    stream.write(&quot;HTTP/1.1 200 OK\r\n\r\nHello!&quot;);
+}
+
+// HTTP client
+let response = http::get(&quot;https://api.example.com/data&quot;);  // Result&lt;Response&gt;
+let status = response.status();  // 200
+let body = response.text();  // String
+let json = response.json();  // Result&lt;JsonValue&gt;
+
+// HTTP server
+let server = HttpServer::new();
+server.route(&quot;/&quot;, |req| {
+    Response::ok(&quot;Hello, World!&quot;)
+});
+server.route(&quot;/api/users/:id&quot;, |req| {
+    let id = req.param(&quot;id&quot;);
+    Response::json(get_user(id))
+});
+server.listen(&quot;127.0.0.1:8080&quot;);
+
+// WebSocket
+let ws = WebSocket::connect(&quot;ws://echo.websocket.org&quot;);
+ws.send(&quot;Hello&quot;);
+let message = ws.receive();  // &quot;Hello&quot;
+
+// DNS resolution
+let addresses = dns::resolve(&quot;example.com&quot;);  // Vec&lt;IpAddr&gt;
+
+// URL parsing
+let url = Url::parse(&quot;https://example.com:8080/path?key=value#fragment&quot;);
+let scheme = url.scheme();  // &quot;https&quot;
+let host = url.host();  // &quot;example.com&quot;
+let port = url.port();  // 8080
+let path = url.path();  // &quot;/path&quot;
+let query = url.query();  // &quot;key=value&quot;
+</code></pre>
+<h3>5. JSON &amp; Data Serialization</h3>
+<p><strong>Objective:</strong> JSON and other data format support.</p>
+<pre><code class="language-synq">// JSON parsing
+let json_str = r#&quot;{&quot;name&quot;: &quot;Alice&quot;, &quot;age&quot;: 30}&quot;#;
+let json = json::parse(json_str);  // Result&lt;JsonValue&gt;
+let name = json[&quot;name&quot;].as_string();  // &quot;Alice&quot;
+let age = json[&quot;age&quot;].as_i32();  // 30
+
+// JSON creation
+let json = json::object()
+    .set(&quot;name&quot;, &quot;Bob&quot;)
+    .set(&quot;age&quot;, 25)
+    .set(&quot;email&quot;, &quot;bob@example.com&quot;);
+let json_str = json.to_string();
+
+// JSON array
+let json = json::array()
+    .push(1)
+    .push(2)
+    .push(3);
+
+// Struct serialization
+#[derive(Serialize)]
+struct User {
+    name: str,
+    age: i32,
+    email: str
+}
+
+let user = User { name: &quot;Alice&quot;, age: 30, email: &quot;alice@example.com&quot; };
+let json = user.to_json();  // Serialize to JSON
+let json_str = json.to_string();
+
+// Struct deserialization
+let json_str = r#&quot;{&quot;name&quot;: &quot;Bob&quot;, &quot;age&quot;: 25, &quot;email&quot;: &quot;bob@example.com&quot;}&quot;#;
+let user = User::from_json(json_str);  // Deserialize from JSON
+
+// CSV support
+let csv = csv::read(&quot;data.csv&quot;);  // Vec&lt;Vec&lt;String&gt;&gt;
+csv::write(&quot;output.csv&quot;, data);
+
+// YAML support
+let yaml = yaml::parse(&quot;key: value&quot;);
+let value = yaml[&quot;key&quot;].as_string();
+
+// TOML support
+let toml = toml::parse(&quot;[section]\nkey = \&quot;value\&quot;&quot;);
+let value = toml[&quot;section&quot;][&quot;key&quot;].as_string();
+</code></pre>
+<h3>6. Concurrency &amp; Parallelism</h3>
+<p><strong>Objective:</strong> Thread-safe concurrent programming.</p>
+<pre><code class="language-synq">// Thread spawning
+let handle = thread::spawn(|| {
+    println!(&quot;Hello from thread&quot;);
+});
+handle.join();  // Wait for thread
+
+// Shared state with Mutex
+let counter = Arc::new(Mutex::new(0));
+let c1 = counter.clone();
+thread::spawn(move || {
+    let mut num = c1.lock();
+    *num += 1;
+});
+
+// Channels for message passing
+let (tx, rx) = channel::mpsc();
+thread::spawn(move || {
+    tx.send(&quot;Hello&quot;);
+});
+let message = rx.recv();  // &quot;Hello&quot;
+
+// Thread pool
+let pool = ThreadPool::new(4);
+for i in 0..10 {
+    pool.execute(|| {
+        println!(&quot;Task {}&quot;, i);
+    });
+}
+
+// Atomic operations
+let atomic = AtomicI32::new(0);
+atomic.fetch_add(1, Ordering::SeqCst);
+let value = atomic.load(Ordering::SeqCst);  // 1
+
+// RwLock (multiple readers, single writer)
+let data = Arc::new(RwLock::new(vec![1, 2, 3]));
+let readers = data.read();  // Multiple readers OK
+let writer = data.write();  // Exclusive access
+
+// Barrier (synchronization)
+let barrier = Barrier::new(3);
+for i in 0..3 {
+    thread::spawn(move || {
+        println!(&quot;Before barrier: {}&quot;, i);
+        barrier.wait();
+        println!(&quot;After barrier: {}&quot;, i);
+    });
+}
+
+// Semaphore
+let semaphore = Semaphore::new(2);
+semaphore.acquire();
+// Critical section
+semaphore.release();
+</code></pre>
+<h3>7. Async/Await &amp; Futures</h3>
+<p><strong>Objective:</strong> Asynchronous programming support.</p>
+<pre><code class="language-synq">// Async functions
+async fn fetch_data(url: &amp;str) -&gt; str {
+    let response = await http::get(url);
+    let data = await response.text();
+    return data;
+}
+
+// Await expressions
+async fn main() {
+    let data = await fetch_data(&quot;https://api.example.com&quot;);
+    println!(&quot;{}&quot;, data);
+}
+
+// Future composition
+async fn process_multiple() {
+    let f1 = fetch_data(&quot;url1&quot;);
+    let f2 = fetch_data(&quot;url2&quot;);
+    let (r1, r2) = await join(f1, f2);
+}
+
+// Select (race futures)
+async fn first_to_complete() {
+    let f1 = fetch_data(&quot;url1&quot;);
+    let f2 = fetch_data(&quot;url2&quot;);
+    let result = await select(f1, f2);  // Returns whichever completes first
+}
+
+// Timeout
+async fn with_timeout() {
+    let result = await timeout(
+        Duration::from_secs(5),
+        fetch_data(&quot;https://api.example.com&quot;)
+    );
+}
+
+// Stream (async iterator)
+async fn stream_data() {
+    let mut stream = http::stream(&quot;https://api.example.com/stream&quot;);
+    while let Some(data) = await stream.next() {
+        println!(&quot;{}&quot;, data);
+    }
+}
+</code></pre>
+<h3>8. Date &amp; Time</h3>
+<p><strong>Objective:</strong> Comprehensive date and time handling.</p>
+<pre><code class="language-synq">// Current time
+let now = SystemTime::now();
+let timestamp = now.duration_since(UNIX_EPOCH);
+
+// Duration
+let duration = Duration::from_secs(60);
+let duration = Duration::from_millis(1000);
+let duration = Duration::from_micros(1000000);
+
+// DateTime
+let dt = DateTime::now();
+let year = dt.year();
+let month = dt.month();
+let day = dt.day();
+let hour = dt.hour();
+let minute = dt.minute();
+let second = dt.second();
+
+// Date arithmetic
+let tomorrow = dt.add_days(1);
+let next_week = dt.add_weeks(1);
+let next_month = dt.add_months(1);
+let next_year = dt.add_years(1);
+
+// Date formatting
+let formatted = dt.format(&quot;%Y-%m-%d %H:%M:%S&quot;);  // &quot;2024-02-06 10:30:45&quot;
+let iso8601 = dt.to_iso8601();  // &quot;2024-02-06T10:30:45Z&quot;
+
+// Date parsing
+let dt = DateTime::parse(&quot;2024-02-06&quot;, &quot;%Y-%m-%d&quot;);
+
+// Timezone support
+let utc = DateTime::now_utc();
+let local = DateTime::now_local();
+let pst = DateTime::now_tz(&quot;America/Los_Angeles&quot;);
+</code></pre>
+<h3>9. Mathematics &amp; Numerics</h3>
+<p><strong>Objective:</strong> Comprehensive mathematical functions.</p>
+<pre><code class="language-synq">// Basic math
+let abs = math::abs(-5);  // 5
+let max = math::max(3, 5);  // 5
+let min = math::min(3, 5);  // 3
+let pow = math::pow(2, 3);  // 8
+let sqrt = math::sqrt(16.0);  // 4.0
+let cbrt = math::cbrt(27.0);  // 3.0
+
+// Trigonometry
+let sin = math::sin(0.0);  // 0.0
+let cos = math::cos(0.0);  // 1.0
+let tan = math::tan(0.0);  // 0.0
+let asin = math::asin(0.5);  // π/6
+let acos = math::acos(0.5);  // π/3
+let atan = math::atan(1.0);  // π/4
+
+// Logarithms
+let ln = math::ln(2.718281828);  // 1.0
+let log10 = math::log10(100.0);  // 2.0
+let log2 = math::log2(8.0);  // 3.0
+
+// Rounding
+let ceil = math::ceil(3.2);  // 4.0
+let floor = math::floor(3.8);  // 3.0
+let round = math::round(3.5);  // 4.0
+let trunc = math::trunc(3.8);  // 3.0
+
+// Statistics
+let mean = stats::mean([1.0, 2.0, 3.0]);  // 2.0
+let median = stats::median([1.0, 2.0, 3.0]);  // 2.0
+let variance = stats::variance([1.0, 2.0, 3.0]);  // 0.666...
+let stddev = stats::stddev([1.0, 2.0, 3.0]);  // 0.816...
+
+// Linear algebra
+let vec = Vector::new([1.0, 2.0, 3.0]);
+let mat = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+let dot = vec.dot(vec);  // 14.0
+let cross = vec.cross(vec);  // [0, 0, 0]
+let transpose = mat.transpose();
+let inverse = mat.inverse();
+let determinant = mat.determinant();
+
+// Random numbers
+let random = random::random();  // 0.0..1.0
+let random_int = random::randint(0, 100);  // 0..100
+let random_choice = random::choice([1, 2, 3]);  // Random element
+</code></pre>
+<h3>10. Machine Learning</h3>
+<p><strong>Objective:</strong> Built-in ML capabilities.</p>
+<pre><code class="language-synq">// Neural networks
+let model = NeuralNetwork::new()
+    .add_layer(Dense(784, 128, activation::relu))
+    .add_layer(Dense(128, 64, activation::relu))
+    .add_layer(Dense(64, 10, activation::softmax));
+
+// Training
+model.compile(optimizer::adam(), loss::cross_entropy);
+model.fit(training_data, training_labels, epochs: 10, batch_size: 32);
+
+// Prediction
+let predictions = model.predict(test_data);
+
+// Evaluation
+let accuracy = model.evaluate(test_data, test_labels);
+
+// Common algorithms
+let kmeans = KMeans::new(k: 3);
+kmeans.fit(data);
+let clusters = kmeans.predict(data);
+
+let pca = PCA::new(n_components: 2);
+pca.fit(data);
+let reduced = pca.transform(data);
+
+let svm = SVM::new();
+svm.fit(training_data, training_labels);
+let predictions = svm.predict(test_data);
+
+let rf = RandomForest::new(n_trees: 100);
+rf.fit(training_data, training_labels);
+let predictions = rf.predict(test_data);
+
+// Feature engineering
+let scaled = preprocessing::scale(data);
+let normalized = preprocessing::normalize(data);
+let encoded = preprocessing::one_hot_encode(categorical_data);
+</code></pre>
+<h3>11. Quantum Computing</h3>
+<p><strong>Objective:</strong> Quantum algorithms and simulation.</p>
+<pre><code class="language-synq">// Quantum circuits
+let circuit = QuantumCircuit::new(3);
+circuit.h(0);  // Hadamard on qubit 0
+circuit.cnot(0, 1);  // CNOT
+circuit.measure_all();
+
+// Quantum algorithms
+let vqe = VQE::new(ansatz, hamiltonian);
+let result = vqe.optimize();
+
+let qaoa = QAOA::new(problem);
+let result = qaoa.solve();
+
+// Quantum simulation
+let simulator = QuantumSimulator::new();
+let result = simulator.simulate(circuit);
+let statevector = result.statevector();
+let counts = result.counts();
+
+// Quantum gates
+circuit.x(0);  // Pauli-X
+circuit.y(0);  // Pauli-Y
+circuit.z(0);  // Pauli-Z
+circuit.h(0);  // Hadamard
+circuit.s(0);  // S gate
+circuit.t(0);  // T gate
+circuit.rx(0, pi/2);  // RX rotation
+circuit.ry(0, pi/2);  // RY rotation
+circuit.rz(0, pi/2);  // RZ rotation
+</code></pre>
+<h3>12. Quantum Machine Learning</h3>
+<p><strong>Objective:</strong> Quantum ML algorithms.</p>
+<pre><code class="language-synq">// Quantum neural networks
+let qnn = QuantumNeuralNetwork::new(n_qubits: 4);
+qnn.add_layer(QuantumLayer::new(n_qubits: 4));
+qnn.add_layer(ClassicalLayer::new(4, 2));
+
+// Training
+qnn.fit(training_data, training_labels, epochs: 100);
+
+// Quantum kernel methods
+let qkernel = QuantumKernel::new(feature_map);
+let kernel_matrix = qkernel.compute(data);
+
+// Quantum SVM
+let qsvm = QuantumSVM::new(qkernel);
+qsvm.fit(training_data, training_labels);
+let predictions = qsvm.predict(test_data);
+
+// Quantum clustering
+let qclustering = QuantumClustering::new(n_clusters: 3);
+qclustering.fit(data);
+let clusters = qclustering.predict(data);
+</code></pre>
+<h3>13. Data Processing</h3>
+<p><strong>Objective:</strong> Data manipulation and analysis.</p>
+<pre><code class="language-synq">// Data frames
+let df = DataFrame::new({
+    &quot;name&quot; =&gt; [&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;],
+    &quot;age&quot; =&gt; [25, 30, 35],
+    &quot;salary&quot; =&gt; [50000, 60000, 70000]
+});
+
+// Filtering
+let filtered = df.filter(df[&quot;age&quot;] &gt; 26);
+
+// Grouping
+let grouped = df.groupby(&quot;age&quot;);
+let mean_salary = grouped[&quot;salary&quot;].mean();
+
+// Sorting
+let sorted = df.sort_by(&quot;salary&quot;, ascending: false);
+
+// Aggregation
+let agg = df.agg({
+    &quot;age&quot; =&gt; &quot;mean&quot;,
+    &quot;salary&quot; =&gt; &quot;sum&quot;
+});
+
+// Merging
+let df2 = DataFrame::new({ &quot;name&quot; =&gt; [&quot;Alice&quot;, &quot;Bob&quot;], &quot;dept&quot; =&gt; [&quot;Engineering&quot;, &quot;Sales&quot;] });
+let merged = df.merge(df2, on: &quot;name&quot;);
+
+// Pivoting
+let pivoted = df.pivot(index: &quot;name&quot;, columns: &quot;age&quot;, values: &quot;salary&quot;);
+
+// Time series
+let ts = TimeSeries::new(dates, values);
+let rolling_mean = ts.rolling_mean(window: 7);
+let ewma = ts.ewma(span: 7);
+</code></pre>
+<h3>14. Cryptography &amp; Security</h3>
+<p><strong>Objective:</strong> Cryptographic functions (expanded from Phase 12).</p>
+<pre><code class="language-synq">// Hashing
+let hash = crypto::sha256(&quot;data&quot;);
+let hash = crypto::blake3(&quot;data&quot;);
+
+// Encryption
+let key = crypto::generate_key(256);
+let encrypted = crypto::encrypt_aes_256_gcm(&quot;data&quot;, key);
+let decrypted = crypto::decrypt_aes_256_gcm(encrypted, key);
+
+// Digital signatures
+let (pub_key, priv_key) = crypto::generate_keypair();
+let signature = crypto::sign(&quot;message&quot;, priv_key);
+let verified = crypto::verify(&quot;message&quot;, signature, pub_key);
+
+// Key derivation
+let derived_key = crypto::pbkdf2(&quot;password&quot;, salt, iterations: 100000);
+
+// Random number generation
+let random_bytes = crypto::random_bytes(32);
+let random_int = crypto::random_int(0, 100);
+</code></pre>
+<h3>15. Logging &amp; Debugging</h3>
+<p><strong>Objective:</strong> Logging and debugging support.</p>
+<pre><code class="language-synq">// Logging
+let logger = Logger::new(&quot;app&quot;);
+logger.debug(&quot;Debug message&quot;);
+logger.info(&quot;Info message&quot;);
+logger.warn(&quot;Warning message&quot;);
+logger.error(&quot;Error message&quot;);
+
+// Log levels
+logger.set_level(LogLevel::Debug);
+
+// Log formatting
+logger.set_format(&quot;{timestamp} [{level}] {message}&quot;);
+
+// File logging
+logger.add_file_appender(&quot;app.log&quot;);
+
+// Structured logging
+logger.info(&quot;User login&quot;, {
+    &quot;user_id&quot; =&gt; 123,
+    &quot;timestamp&quot; =&gt; now(),
+    &quot;ip&quot; =&gt; &quot;192.168.1.1&quot;
+});
+
+// Debugging
+let debugger = Debugger::new();
+debugger.set_breakpoint(&quot;file.synq&quot;, 42);
+debugger.continue();
+let stack = debugger.stack_trace();
+let locals = debugger.local_variables();
+</code></pre>
+<hr />
+<h2>Implementation Roadmap</h2>
+<h3>Stage 1: Collections (Weeks 1-2)</h3>
+<p>Implement all collection types with efficient algorithms and comprehensive methods.</p>
+<h3>Stage 2: String &amp; Text (Weeks 3-4)</h3>
+<p>Implement string manipulation, regex, and text processing functions.</p>
+<h3>Stage 3: File I/O &amp; Filesystem (Weeks 5-6)</h3>
+<p>Implement file operations, directory traversal, and path manipulation.</p>
+<h3>Stage 4: Networking &amp; HTTP (Weeks 7-8)</h3>
+<p>Implement TCP, HTTP client/server, WebSocket, and DNS.</p>
+<h3>Stage 5: JSON &amp; Serialization (Weeks 9-10)</h3>
+<p>Implement JSON, CSV, YAML, TOML parsing and generation.</p>
+<h3>Stage 6: Concurrency (Weeks 11-12)</h3>
+<p>Implement threading, channels, mutexes, and synchronization primitives.</p>
+<h3>Stage 7: Async/Await (Weeks 13-14)</h3>
+<p>Implement async functions, futures, and streams.</p>
+<h3>Stage 8: Date &amp; Time (Weeks 15-16)</h3>
+<p>Implement date/time operations and timezone support.</p>
+<h3>Stage 9: Math &amp; Numerics (Weeks 17-18)</h3>
+<p>Implement mathematical functions and linear algebra.</p>
+<h3>Stage 10: Machine Learning (Weeks 19-20)</h3>
+<p>Implement neural networks, clustering, and common ML algorithms.</p>
+<h3>Stage 11: Quantum Computing (Weeks 21-22)</h3>
+<p>Implement quantum circuits, gates, and algorithms.</p>
+<h3>Stage 12: Quantum ML (Weeks 23-24)</h3>
+<p>Implement quantum neural networks and quantum ML algorithms.</p>
+<h3>Stage 13: Data Processing (Weeks 25-26)</h3>
+<p>Implement DataFrames and data manipulation functions.</p>
+<h3>Stage 14: Cryptography (Weeks 27-28)</h3>
+<p>Implement cryptographic functions (expanded from Phase 12).</p>
+<h3>Stage 15: Logging &amp; Debugging (Weeks 29-30)</h3>
+<p>Implement logging and debugging support.</p>
+<hr />
+<h2>Standard Library Statistics</h2>
+<p>| Category | Functions | Estimated LOC |
+|---|---|---|
+| <strong>Collections</strong> | 50+ | 5,000 |
+| <strong>String &amp; Text</strong> | 40+ | 3,000 |
+| <strong>File I/O</strong> | 30+ | 2,000 |
+| <strong>Networking</strong> | 35+ | 4,000 |
+| <strong>JSON &amp; Serialization</strong> | 30+ | 2,500 |
+| <strong>Concurrency</strong> | 25+ | 3,000 |
+| <strong>Async/Await</strong> | 20+ | 2,500 |
+| <strong>Date &amp; Time</strong> | 25+ | 2,000 |
+| <strong>Math &amp; Numerics</strong> | 50+ | 3,000 |
+| <strong>Machine Learning</strong> | 40+ | 8,000 |
+| <strong>Quantum Computing</strong> | 35+ | 5,000 |
+| <strong>Quantum ML</strong> | 20+ | 3,000 |
+| <strong>Data Processing</strong> | 30+ | 4,000 |
+| <strong>Cryptography</strong> | 25+ | 2,000 |
+| <strong>Logging &amp; Debugging</strong> | 20+ | 1,500 |
+| <strong>TOTAL</strong> | <strong>500+</strong> | <strong>51,500</strong> |</p>
+<hr />
+<h2>Backward Compatibility</h2>
+<p><strong>Compatibility Strategy:</strong></p>
+<ol>
+<li><strong>Maintain existing functions</strong> - All Phase 1-10 functions continue to work</li>
+<li><strong>Add new functions</strong> - New functions don't break existing code</li>
+<li><strong>Deprecation path</strong> - Old functions marked deprecated before removal</li>
+</ol>
+<hr />
+<h2>Success Criteria</h2>
+<p>Phase 14 is complete when:</p>
+<ol>
+<li>✅ 500+ standard library functions implemented</li>
+<li>✅ 95%+ test coverage across all functions</li>
+<li>✅ Performance within 10% of specialized libraries</li>
+<li>✅ Comprehensive documentation with examples</li>
+<li>✅ Zero external dependencies for core functionality</li>
+<li>✅ All Phase 1-10 code still compiles and runs correctly</li>
+</ol>
+<hr />
+<h2>Dependencies for Phase 15+</h2>
+<p>Phase 14 establishes the comprehensive standard library required for:</p>
+<ul>
+<li><strong>Phase 15 (IDE)</strong> - IDE integration with standard library documentation and autocomplete</li>
+</ul>
+<hr />
+<h2>Conclusion</h2>
+<p>Phase 14 transforms SynQ into a batteries-included language with comprehensive standard library covering all major programming domains. With 500+ functions, SynQ becomes a complete programming environment suitable for any use case without requiring external dependencies.</p>
+<p>Upon completion of Phase 14, developers can write complete applications in SynQ without needing to learn or integrate external libraries, making SynQ truly universal and self-contained.</p>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

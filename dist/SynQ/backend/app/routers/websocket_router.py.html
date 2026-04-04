@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>websocket_router.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;
+WebSocket Router for real-time collaboration endpoints.
+
+Provides WebSocket endpoints for collaborative editing, presence tracking,
+and real-time communication.
+&quot;&quot;&quot;
+
+import logging
+from typing import Optional
+from uuid import uuid4
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+
+from app.websocket.connection_manager import connection_manager, WebSocketMessage, MessageType
+from app.websocket.message_handler import message_handler
+from app.security.auth import verify_token
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix=&quot;/api/v1/collaboration&quot;, tags=[&quot;collaboration&quot;])
+
+
+@router.websocket(&quot;/ws/{session_id}&quot;)
+async def websocket_endpoint(websocket: WebSocket, session_id: str, token: str):
+    &quot;&quot;&quot;
+    WebSocket endpoint for real-time collaboration.
+    
+    Clients connect with a session ID and JWT token.
+    Messages are routed based on type (edit, presence, comment, etc.)
+    &quot;&quot;&quot;
+    try:
+        # Verify token
+        user_data = verify_token(token)
+        if not user_data:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        
+        user_id = user_data.get(&quot;sub&quot;)
+        
+        # Connect user to session
+        connection = await connection_manager.connect(websocket, session_id, user_id)
+        if not connection:
+            await websocket.close(code=status.WS_1011_SERVER_ERROR)
+            return
+        
+        # Get session
+        session = await connection_manager.get_session(session_id)
+        
+        # Send welcome message with initial state
+        welcome_message = WebSocketMessage(
+            type=MessageType.SYNC,
+            session_id=session_id,
+            user_id=user_id,
+            timestamp=__import__(&quot;datetime&quot;).datetime.utcnow(),
+            data={
+                &quot;content&quot;: session.content,
+                &quot;version&quot;: session.version,
+                &quot;participants&quot;: session.get_participants(),
+                &quot;connection_id&quot;: connection.connection_id
+            }
+        )
+        await connection.send_message(welcome_message)
+        
+        # Broadcast user joined
+        join_message = WebSocketMessage(
+            type=MessageType.PRESENCE,
+            session_id=session_id,
+            user_id=user_id,
+            timestamp=__import__(&quot;datetime&quot;).datetime.utcnow(),
+            data={
+                &quot;presence_type&quot;: &quot;user_joined&quot;,
+                &quot;user_id&quot;: user_id,
+                &quot;participants&quot;: session.get_participants()
+            }
+        )
+        await session.broadcast_message(join_message, connection.connection_id)
+        
+        # Message loop
+        while True:
+            try:
+                # Receive message
+                received_message = await connection.receive_message()
+                if not received_message:
+                    break
+                
+                # Process message
+                await message_handler.process_message(received_message, connection, session)
+            
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error(f&quot;Error in message loop: {e}&quot;)
+                break
+    
+    except Exception as e:
+        logger.error(f&quot;WebSocket error: {e}&quot;)
+    
+    finally:
+        # Disconnect user
+        if connection:
+            await connection_manager.disconnect(connection)
+            
+            # Broadcast user left
+            session = await connection_manager.get_session(session_id)
+            if session:
+                leave_message = WebSocketMessage(
+                    type=MessageType.PRESENCE,
+                    session_id=session_id,
+                    user_id=user_id,
+                    timestamp=__import__(&quot;datetime&quot;).datetime.utcnow(),
+                    data={
+                        &quot;presence_type&quot;: &quot;user_left&quot;,
+                        &quot;user_id&quot;: user_id,
+                        &quot;participants&quot;: session.get_participants()
+                    }
+                )
+                await session.broadcast_message(leave_message)
+
+
+@router.post(&quot;/sessions&quot;)
+async def create_session(
+    name: str = &quot;&quot;,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Create a new collaboration session.
+    
+    Returns session ID and connection details.
+    &quot;&quot;&quot;
+    try:
+        user_id = current_user.get(&quot;sub&quot;)
+        session_id = str(uuid4())
+        
+        session = await connection_manager.create_session(session_id, user_id, name)
+        
+        return JSONResponse({
+            &quot;session_id&quot;: session_id,
+            &quot;name&quot;: name,
+            &quot;owner_id&quot;: user_id,
+            &quot;created_at&quot;: session.created_at.isoformat(),
+            &quot;ws_url&quot;: f&quot;/api/v1/collaboration/ws/{session_id}&quot;
+        })
+    
+    except Exception as e:
+        logger.error(f&quot;Error creating session: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to create session&quot;)
+
+
+@router.get(&quot;/sessions/{session_id}&quot;)
+async def get_session(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Get session details and participant information.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        stats = await connection_manager.get_session_stats(session_id)
+        
+        return JSONResponse(stats)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error getting session: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to get session&quot;)
+
+
+@router.get(&quot;/sessions&quot;)
+async def list_sessions(
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    List all active collaboration sessions.
+    &quot;&quot;&quot;
+    try:
+        sessions = connection_manager.get_all_sessions()
+        return JSONResponse({&quot;sessions&quot;: sessions})
+    
+    except Exception as e:
+        logger.error(f&quot;Error listing sessions: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to list sessions&quot;)
+
+
+@router.delete(&quot;/sessions/{session_id}&quot;)
+async def delete_session(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Delete a collaboration session.
+    
+    Only the session owner can delete it.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        user_id = current_user.get(&quot;sub&quot;)
+        if session.owner_id != user_id:
+            raise HTTPException(status_code=403, detail=&quot;Only session owner can delete&quot;)
+        
+        success = await connection_manager.delete_session(session_id)
+        if success:
+            return JSONResponse({&quot;message&quot;: &quot;Session deleted&quot;})
+        else:
+            raise HTTPException(status_code=500, detail=&quot;Failed to delete session&quot;)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error deleting session: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to delete session&quot;)
+
+
+@router.get(&quot;/sessions/{session_id}/content&quot;)
+async def get_session_content(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Get the current content of a collaboration session.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        return JSONResponse({
+            &quot;session_id&quot;: session_id,
+            &quot;content&quot;: session.content,
+            &quot;version&quot;: session.version,
+            &quot;edit_count&quot;: len(session.edit_history),
+            &quot;comment_count&quot;: len(session.comments)
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error getting session content: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to get session content&quot;)
+
+
+@router.get(&quot;/sessions/{session_id}/participants&quot;)
+async def get_session_participants(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Get list of participants in a session.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        participants = session.get_participants()
+        
+        return JSONResponse({
+            &quot;session_id&quot;: session_id,
+            &quot;participant_count&quot;: len(participants),
+            &quot;participants&quot;: participants
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error getting participants: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to get participants&quot;)
+
+
+@router.get(&quot;/sessions/{session_id}/history&quot;)
+async def get_session_history(
+    session_id: str,
+    limit: int = 100,
+    offset: int = 0,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Get edit history for a session.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        history = session.edit_history[offset:offset + limit]
+        
+        return JSONResponse({
+            &quot;session_id&quot;: session_id,
+            &quot;total_edits&quot;: len(session.edit_history),
+            &quot;edits&quot;: [
+                {
+                    &quot;user_id&quot;: edit.user_id,
+                    &quot;timestamp&quot;: edit.timestamp.isoformat(),
+                    &quot;operation&quot;: edit.data.get(&quot;operation&quot;),
+                    &quot;version&quot;: edit.version
+                }
+                for edit in history
+            ]
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error getting history: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to get history&quot;)
+
+
+@router.get(&quot;/sessions/{session_id}/comments&quot;)
+async def get_session_comments(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Get all comments in a session.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        return JSONResponse({
+            &quot;session_id&quot;: session_id,
+            &quot;comment_count&quot;: len(session.comments),
+            &quot;comments&quot;: session.comments
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error getting comments: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to get comments&quot;)
+
+
+@router.post(&quot;/sessions/{session_id}/cleanup&quot;)
+async def cleanup_session(
+    session_id: str,
+    current_user: dict = Depends(verify_token)
+) -&gt; JSONResponse:
+    &quot;&quot;&quot;
+    Clean up inactive connections in a session.
+    &quot;&quot;&quot;
+    try:
+        session = await connection_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=&quot;Session not found&quot;)
+        
+        user_id = current_user.get(&quot;sub&quot;)
+        if session.owner_id != user_id:
+            raise HTTPException(status_code=403, detail=&quot;Only session owner can cleanup&quot;)
+        
+        await connection_manager.cleanup_inactive_connections()
+        
+        return JSONResponse({
+            &quot;message&quot;: &quot;Cleanup completed&quot;,
+            &quot;active_participants&quot;: session.get_participant_count()
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f&quot;Error cleaning up session: {e}&quot;)
+        raise HTTPException(status_code=500, detail=&quot;Failed to cleanup session&quot;)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

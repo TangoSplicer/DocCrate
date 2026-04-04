@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nntplib.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;An NNTP client class based on:
+- RFC 977: Network News Transfer Protocol
+- RFC 2980: Common NNTP Extensions
+- RFC 3977: Network News Transfer Protocol (version 2)
+
+Example:
+
+&gt;&gt;&gt; from nntplib import NNTP
+&gt;&gt;&gt; s = NNTP('news')
+&gt;&gt;&gt; resp, count, first, last, name = s.group('comp.lang.python')
+&gt;&gt;&gt; print('Group', name, 'has', count, 'articles, range', first, 'to', last)
+Group comp.lang.python has 51 articles, range 5770 to 5821
+&gt;&gt;&gt; resp, subs = s.xhdr('subject', '{0}-{1}'.format(first, last))
+&gt;&gt;&gt; resp = s.quit()
+&gt;&gt;&gt;
+
+Here 'resp' is the server response line.
+Error responses are turned into exceptions.
+
+To post an article from a file:
+&gt;&gt;&gt; f = open(filename, 'rb') # file containing article, including header
+&gt;&gt;&gt; resp = s.post(f)
+&gt;&gt;&gt;
+
+For descriptions of all methods, read the comments in the code below.
+Note that all arguments and return values representing article numbers
+are strings, not numbers, since they are rarely used for calculations.
+&quot;&quot;&quot;
+
+# RFC 977 by Brian Kantor and Phil Lapsley.
+# xover, xgtitle, xpath, date methods by Kevan Heydon
+
+# Incompatible changes from the 2.x nntplib:
+# - all commands are encoded as UTF-8 data (using the &quot;surrogateescape&quot;
+#   error handler), except for raw message data (POST, IHAVE)
+# - all responses are decoded as UTF-8 data (using the &quot;surrogateescape&quot;
+#   error handler), except for raw message data (ARTICLE, HEAD, BODY)
+# - the `file` argument to various methods is keyword-only
+#
+# - NNTP.date() returns a datetime object
+# - NNTP.newgroups() and NNTP.newnews() take a datetime (or date) object,
+#   rather than a pair of (date, time) strings.
+# - NNTP.newgroups() and NNTP.list() return a list of GroupInfo named tuples
+# - NNTP.descriptions() returns a dict mapping group names to descriptions
+# - NNTP.xover() returns a list of dicts mapping field names (header or metadata)
+#   to field values; each dict representing a message overview.
+# - NNTP.article(), NNTP.head() and NNTP.body() return a (response, ArticleInfo)
+#   tuple.
+# - the &quot;internal&quot; methods have been marked private (they now start with
+#   an underscore)
+
+# Other changes from the 2.x/3.1 nntplib:
+# - automatic querying of capabilities at connect
+# - New method NNTP.getcapabilities()
+# - New method NNTP.over()
+# - New helper function decode_header()
+# - NNTP.post() and NNTP.ihave() accept file objects, bytes-like objects and
+#   arbitrary iterables yielding lines.
+# - An extensive test suite :-)
+
+# TODO:
+# - return structured data (GroupInfo etc.) everywhere
+# - support HDR
+
+# Imports
+import re
+import socket
+import collections
+import datetime
+import sys
+import warnings
+
+try:
+    import ssl
+except ImportError:
+    _have_ssl = False
+else:
+    _have_ssl = True
+
+from email.header import decode_header as _email_decode_header
+from socket import _GLOBAL_DEFAULT_TIMEOUT
+
+__all__ = [&quot;NNTP&quot;,
+           &quot;NNTPError&quot;, &quot;NNTPReplyError&quot;, &quot;NNTPTemporaryError&quot;,
+           &quot;NNTPPermanentError&quot;, &quot;NNTPProtocolError&quot;, &quot;NNTPDataError&quot;,
+           &quot;decode_header&quot;,
+           ]
+
+warnings._deprecated(__name__, remove=(3, 13))
+
+# maximal line length when calling readline(). This is to prevent
+# reading arbitrary length lines. RFC 3977 limits NNTP line length to
+# 512 characters, including CRLF. We have selected 2048 just to be on
+# the safe side.
+_MAXLINE = 2048
+
+
+# Exceptions raised when an error or invalid response is received
+class NNTPError(Exception):
+    &quot;&quot;&quot;Base class for all nntplib exceptions&quot;&quot;&quot;
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+        try:
+            self.response = args[0]
+        except IndexError:
+            self.response = 'No response given'
+
+class NNTPReplyError(NNTPError):
+    &quot;&quot;&quot;Unexpected [123]xx reply&quot;&quot;&quot;
+    pass
+
+class NNTPTemporaryError(NNTPError):
+    &quot;&quot;&quot;4xx errors&quot;&quot;&quot;
+    pass
+
+class NNTPPermanentError(NNTPError):
+    &quot;&quot;&quot;5xx errors&quot;&quot;&quot;
+    pass
+
+class NNTPProtocolError(NNTPError):
+    &quot;&quot;&quot;Response does not begin with [1-5]&quot;&quot;&quot;
+    pass
+
+class NNTPDataError(NNTPError):
+    &quot;&quot;&quot;Error in response data&quot;&quot;&quot;
+    pass
+
+
+# Standard port used by NNTP servers
+NNTP_PORT = 119
+NNTP_SSL_PORT = 563
+
+# Response numbers that are followed by additional text (e.g. article)
+_LONGRESP = {
+    '100',   # HELP
+    '101',   # CAPABILITIES
+    '211',   # LISTGROUP   (also not multi-line with GROUP)
+    '215',   # LIST
+    '220',   # ARTICLE
+    '221',   # HEAD, XHDR
+    '222',   # BODY
+    '224',   # OVER, XOVER
+    '225',   # HDR
+    '230',   # NEWNEWS
+    '231',   # NEWGROUPS
+    '282',   # XGTITLE
+}
+
+# Default decoded value for LIST OVERVIEW.FMT if not supported
+_DEFAULT_OVERVIEW_FMT = [
+    &quot;subject&quot;, &quot;from&quot;, &quot;date&quot;, &quot;message-id&quot;, &quot;references&quot;, &quot;:bytes&quot;, &quot;:lines&quot;]
+
+# Alternative names allowed in LIST OVERVIEW.FMT response
+_OVERVIEW_FMT_ALTERNATIVES = {
+    'bytes': ':bytes',
+    'lines': ':lines',
+}
+
+# Line terminators (we always output CRLF, but accept any of CRLF, CR, LF)
+_CRLF = b'\r\n'
+
+GroupInfo = collections.namedtuple('GroupInfo',
+                                   ['group', 'last', 'first', 'flag'])
+
+ArticleInfo = collections.namedtuple('ArticleInfo',
+                                     ['number', 'message_id', 'lines'])
+
+
+# Helper function(s)
+def decode_header(header_str):
+    &quot;&quot;&quot;Takes a unicode string representing a munged header value
+    and decodes it as a (possibly non-ASCII) readable value.&quot;&quot;&quot;
+    parts = []
+    for v, enc in _email_decode_header(header_str):
+        if isinstance(v, bytes):
+            parts.append(v.decode(enc or 'ascii'))
+        else:
+            parts.append(v)
+    return ''.join(parts)
+
+def _parse_overview_fmt(lines):
+    &quot;&quot;&quot;Parse a list of string representing the response to LIST OVERVIEW.FMT
+    and return a list of header/metadata names.
+    Raises NNTPDataError if the response is not compliant
+    (cf. RFC 3977, section 8.4).&quot;&quot;&quot;
+    fmt = []
+    for line in lines:
+        if line[0] == ':':
+            # Metadata name (e.g. &quot;:bytes&quot;)
+            name, _, suffix = line[1:].partition(':')
+            name = ':' + name
+        else:
+            # Header name (e.g. &quot;Subject:&quot; or &quot;Xref:full&quot;)
+            name, _, suffix = line.partition(':')
+        name = name.lower()
+        name = _OVERVIEW_FMT_ALTERNATIVES.get(name, name)
+        # Should we do something with the suffix?
+        fmt.append(name)
+    defaults = _DEFAULT_OVERVIEW_FMT
+    if len(fmt) &lt; len(defaults):
+        raise NNTPDataError(&quot;LIST OVERVIEW.FMT response too short&quot;)
+    if fmt[:len(defaults)] != defaults:
+        raise NNTPDataError(&quot;LIST OVERVIEW.FMT redefines default fields&quot;)
+    return fmt
+
+def _parse_overview(lines, fmt, data_process_func=None):
+    &quot;&quot;&quot;Parse the response to an OVER or XOVER command according to the
+    overview format `fmt`.&quot;&quot;&quot;
+    n_defaults = len(_DEFAULT_OVERVIEW_FMT)
+    overview = []
+    for line in lines:
+        fields = {}
+        article_number, *tokens = line.split('\t')
+        article_number = int(article_number)
+        for i, token in enumerate(tokens):
+            if i &gt;= len(fmt):
+                # XXX should we raise an error? Some servers might not
+                # support LIST OVERVIEW.FMT and still return additional
+                # headers.
+                continue
+            field_name = fmt[i]
+            is_metadata = field_name.startswith(':')
+            if i &gt;= n_defaults and not is_metadata:
+                # Non-default header names are included in full in the response
+                # (unless the field is totally empty)
+                h = field_name + &quot;: &quot;
+                if token and token[:len(h)].lower() != h:
+                    raise NNTPDataError(&quot;OVER/XOVER response doesn't include &quot;
+                                        &quot;names of additional headers&quot;)
+                token = token[len(h):] if token else None
+            fields[fmt[i]] = token
+        overview.append((article_number, fields))
+    return overview
+
+def _parse_datetime(date_str, time_str=None):
+    &quot;&quot;&quot;Parse a pair of (date, time) strings, and return a datetime object.
+    If only the date is given, it is assumed to be date and time
+    concatenated together (e.g. response to the DATE command).
+    &quot;&quot;&quot;
+    if time_str is None:
+        time_str = date_str[-6:]
+        date_str = date_str[:-6]
+    hours = int(time_str[:2])
+    minutes = int(time_str[2:4])
+    seconds = int(time_str[4:])
+    year = int(date_str[:-4])
+    month = int(date_str[-4:-2])
+    day = int(date_str[-2:])
+    # RFC 3977 doesn't say how to interpret 2-char years.  Assume that
+    # there are no dates before 1970 on Usenet.
+    if year &lt; 70:
+        year += 2000
+    elif year &lt; 100:
+        year += 1900
+    return datetime.datetime(year, month, day, hours, minutes, seconds)
+
+def _unparse_datetime(dt, legacy=False):
+    &quot;&quot;&quot;Format a date or datetime object as a pair of (date, time) strings
+    in the format required by the NEWNEWS and NEWGROUPS commands.  If a
+    date object is passed, the time is assumed to be midnight (00h00).
+
+    The returned representation depends on the legacy flag:
+    * if legacy is False (the default):
+      date has the YYYYMMDD format and time the HHMMSS format
+    * if legacy is True:
+      date has the YYMMDD format and time the HHMMSS format.
+    RFC 3977 compliant servers should understand both formats; therefore,
+    legacy is only needed when talking to old servers.
+    &quot;&quot;&quot;
+    if not isinstance(dt, datetime.datetime):
+        time_str = &quot;000000&quot;
+    else:
+        time_str = &quot;{0.hour:02d}{0.minute:02d}{0.second:02d}&quot;.format(dt)
+    y = dt.year
+    if legacy:
+        y = y % 100
+        date_str = &quot;{0:02d}{1.month:02d}{1.day:02d}&quot;.format(y, dt)
+    else:
+        date_str = &quot;{0:04d}{1.month:02d}{1.day:02d}&quot;.format(y, dt)
+    return date_str, time_str
+
+
+if _have_ssl:
+
+    def _encrypt_on(sock, context, hostname):
+        &quot;&quot;&quot;Wrap a socket in SSL/TLS. Arguments:
+        - sock: Socket to wrap
+        - context: SSL context to use for the encrypted connection
+        Returns:
+        - sock: New, encrypted socket.
+        &quot;&quot;&quot;
+        # Generate a default SSL context if none was passed.
+        if context is None:
+            context = ssl._create_stdlib_context()
+        return context.wrap_socket(sock, server_hostname=hostname)
+
+
+# The classes themselves
+class NNTP:
+    # UTF-8 is the character set for all NNTP commands and responses: they
+    # are automatically encoded (when sending) and decoded (and receiving)
+    # by this class.
+    # However, some multi-line data blocks can contain arbitrary bytes (for
+    # example, latin-1 or utf-16 data in the body of a message). Commands
+    # taking (POST, IHAVE) or returning (HEAD, BODY, ARTICLE) raw message
+    # data will therefore only accept and produce bytes objects.
+    # Furthermore, since there could be non-compliant servers out there,
+    # we use 'surrogateescape' as the error handler for fault tolerance
+    # and easy round-tripping. This could be useful for some applications
+    # (e.g. NNTP gateways).
+
+    encoding = 'utf-8'
+    errors = 'surrogateescape'
+
+    def __init__(self, host, port=NNTP_PORT, user=None, password=None,
+                 readermode=None, usenetrc=False,
+                 timeout=_GLOBAL_DEFAULT_TIMEOUT):
+        &quot;&quot;&quot;Initialize an instance.  Arguments:
+        - host: hostname to connect to
+        - port: port to connect to (default the standard NNTP port)
+        - user: username to authenticate with
+        - password: password to use with username
+        - readermode: if true, send 'mode reader' command after
+                      connecting.
+        - usenetrc: allow loading username and password from ~/.netrc file
+                    if not specified explicitly
+        - timeout: timeout (in seconds) used for socket connections
+
+        readermode is sometimes necessary if you are connecting to an
+        NNTP server on the local machine and intend to call
+        reader-specific commands, such as `group'.  If you get
+        unexpected NNTPPermanentErrors, you might need to set
+        readermode.
+        &quot;&quot;&quot;
+        self.host = host
+        self.port = port
+        self.sock = self._create_socket(timeout)
+        self.file = None
+        try:
+            self.file = self.sock.makefile(&quot;rwb&quot;)
+            self._base_init(readermode)
+            if user or usenetrc:
+                self.login(user, password, usenetrc)
+        except:
+            if self.file:
+                self.file.close()
+            self.sock.close()
+            raise
+
+    def _base_init(self, readermode):
+        &quot;&quot;&quot;Partial initialization for the NNTP protocol.
+        This instance method is extracted for supporting the test code.
+        &quot;&quot;&quot;
+        self.debugging = 0
+        self.welcome = self._getresp()
+
+        # Inquire about capabilities (RFC 3977).
+        self._caps = None
+        self.getcapabilities()
+
+        # 'MODE READER' is sometimes necessary to enable 'reader' mode.
+        # However, the order in which 'MODE READER' and 'AUTHINFO' need to
+        # arrive differs between some NNTP servers. If _setreadermode() fails
+        # with an authorization failed error, it will set this to True;
+        # the login() routine will interpret that as a request to try again
+        # after performing its normal function.
+        # Enable only if we're not already in READER mode anyway.
+        self.readermode_afterauth = False
+        if readermode and 'READER' not in self._caps:
+            self._setreadermode()
+            if not self.readermode_afterauth:
+                # Capabilities might have changed after MODE READER
+                self._caps = None
+                self.getcapabilities()
+
+        # RFC 4642 2.2.2: Both the client and the server MUST know if there is
+        # a TLS session active.  A client MUST NOT attempt to start a TLS
+        # session if a TLS session is already active.
+        self.tls_on = False
+
+        # Log in and encryption setup order is left to subclasses.
+        self.authenticated = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        is_connected = lambda: hasattr(self, &quot;file&quot;)
+        if is_connected():
+            try:
+                self.quit()
+            except (OSError, EOFError):
+                pass
+            finally:
+                if is_connected():
+                    self._close()
+
+    def _create_socket(self, timeout):
+        if timeout is not None and not timeout:
+            raise ValueError('Non-blocking socket (timeout=0) is not supported')
+        sys.audit(&quot;nntplib.connect&quot;, self, self.host, self.port)
+        return socket.create_connection((self.host, self.port), timeout)
+
+    def getwelcome(self):
+        &quot;&quot;&quot;Get the welcome message from the server
+        (this is read and squirreled away by __init__()).
+        If the response code is 200, posting is allowed;
+        if it 201, posting is not allowed.&quot;&quot;&quot;
+
+        if self.debugging: print('*welcome*', repr(self.welcome))
+        return self.welcome
+
+    def getcapabilities(self):
+        &quot;&quot;&quot;Get the server capabilities, as read by __init__().
+        If the CAPABILITIES command is not supported, an empty dict is
+        returned.&quot;&quot;&quot;
+        if self._caps is None:
+            self.nntp_version = 1
+            self.nntp_implementation = None
+            try:
+                resp, caps = self.capabilities()
+            except (NNTPPermanentError, NNTPTemporaryError):
+                # Server doesn't support capabilities
+                self._caps = {}
+            else:
+                self._caps = caps
+                if 'VERSION' in caps:
+                    # The server can advertise several supported versions,
+                    # choose the highest.
+                    self.nntp_version = max(map(int, caps['VERSION']))
+                if 'IMPLEMENTATION' in caps:
+                    self.nntp_implementation = ' '.join(caps['IMPLEMENTATION'])
+        return self._caps
+
+    def set_debuglevel(self, level):
+        &quot;&quot;&quot;Set the debugging level.  Argument 'level' means:
+        0: no debugging output (default)
+        1: print commands and responses but not body text etc.
+        2: also print raw lines read and sent before stripping CR/LF&quot;&quot;&quot;
+
+        self.debugging = level
+    debug = set_debuglevel
+
+    def _putline(self, line):
+        &quot;&quot;&quot;Internal: send one line to the server, appending CRLF.
+        The `line` must be a bytes-like object.&quot;&quot;&quot;
+        sys.audit(&quot;nntplib.putline&quot;, self, line)
+        line = line + _CRLF
+        if self.debugging &gt; 1: print('*put*', repr(line))
+        self.file.write(line)
+        self.file.flush()
+
+    def _putcmd(self, line):
+        &quot;&quot;&quot;Internal: send one command to the server (through _putline()).
+        The `line` must be a unicode string.&quot;&quot;&quot;
+        if self.debugging: print('*cmd*', repr(line))
+        line = line.encode(self.encoding, self.errors)
+        self._putline(line)
+
+    def _getline(self, strip_crlf=True):
+        &quot;&quot;&quot;Internal: return one line from the server, stripping _CRLF.
+        Raise EOFError if the connection is closed.
+        Returns a bytes object.&quot;&quot;&quot;
+        line = self.file.readline(_MAXLINE +1)
+        if len(line) &gt; _MAXLINE:
+            raise NNTPDataError('line too long')
+        if self.debugging &gt; 1:
+            print('*get*', repr(line))
+        if not line: raise EOFError
+        if strip_crlf:
+            if line[-2:] == _CRLF:
+                line = line[:-2]
+            elif line[-1:] in _CRLF:
+                line = line[:-1]
+        return line
+
+    def _getresp(self):
+        &quot;&quot;&quot;Internal: get a response from the server.
+        Raise various errors if the response indicates an error.
+        Returns a unicode string.&quot;&quot;&quot;
+        resp = self._getline()
+        if self.debugging: print('*resp*', repr(resp))
+        resp = resp.decode(self.encoding, self.errors)
+        c = resp[:1]
+        if c == '4':
+            raise NNTPTemporaryError(resp)
+        if c == '5':
+            raise NNTPPermanentError(resp)
+        if c not in '123':
+            raise NNTPProtocolError(resp)
+        return resp
+
+    def _getlongresp(self, file=None):
+        &quot;&quot;&quot;Internal: get a response plus following text from the server.
+        Raise various errors if the response indicates an error.
+
+        Returns a (response, lines) tuple where `response` is a unicode
+        string and `lines` is a list of bytes objects.
+        If `file` is a file-like object, it must be open in binary mode.
+        &quot;&quot;&quot;
+
+        openedFile = None
+        try:
+            # If a string was passed then open a file with that name
+            if isinstance(file, (str, bytes)):
+                openedFile = file = open(file, &quot;wb&quot;)
+
+            resp = self._getresp()
+            if resp[:3] not in _LONGRESP:
+                raise NNTPReplyError(resp)
+
+            lines = []
+            if file is not None:
+                # XXX lines = None instead?
+                terminators = (b'.' + _CRLF, b'.\n')
+                while 1:
+                    line = self._getline(False)
+                    if line in terminators:
+                        break
+                    if line.startswith(b'..'):
+                        line = line[1:]
+                    file.write(line)
+            else:
+                terminator = b'.'
+                while 1:
+                    line = self._getline()
+                    if line == terminator:
+                        break
+                    if line.startswith(b'..'):
+                        line = line[1:]
+                    lines.append(line)
+        finally:
+            # If this method created the file, then it must close it
+            if openedFile:
+                openedFile.close()
+
+        return resp, lines
+
+    def _shortcmd(self, line):
+        &quot;&quot;&quot;Internal: send a command and get the response.
+        Same return value as _getresp().&quot;&quot;&quot;
+        self._putcmd(line)
+        return self._getresp()
+
+    def _longcmd(self, line, file=None):
+        &quot;&quot;&quot;Internal: send a command and get the response plus following text.
+        Same return value as _getlongresp().&quot;&quot;&quot;
+        self._putcmd(line)
+        return self._getlongresp(file)
+
+    def _longcmdstring(self, line, file=None):
+        &quot;&quot;&quot;Internal: send a command and get the response plus following text.
+        Same as _longcmd() and _getlongresp(), except that the returned `lines`
+        are unicode strings rather than bytes objects.
+        &quot;&quot;&quot;
+        self._putcmd(line)
+        resp, list = self._getlongresp(file)
+        return resp, [line.decode(self.encoding, self.errors)
+                      for line in list]
+
+    def _getoverviewfmt(self):
+        &quot;&quot;&quot;Internal: get the overview format. Queries the server if not
+        already done, else returns the cached value.&quot;&quot;&quot;
+        try:
+            return self._cachedoverviewfmt
+        except AttributeError:
+            pass
+        try:
+            resp, lines = self._longcmdstring(&quot;LIST OVERVIEW.FMT&quot;)
+        except NNTPPermanentError:
+            # Not supported by server?
+            fmt = _DEFAULT_OVERVIEW_FMT[:]
+        else:
+            fmt = _parse_overview_fmt(lines)
+        self._cachedoverviewfmt = fmt
+        return fmt
+
+    def _grouplist(self, lines):
+        # Parse lines into &quot;group last first flag&quot;
+        return [GroupInfo(*line.split()) for line in lines]
+
+    def capabilities(self):
+        &quot;&quot;&quot;Process a CAPABILITIES command.  Not supported by all servers.
+        Return:
+        - resp: server response if successful
+        - caps: a dictionary mapping capability names to lists of tokens
+        (for example {'VERSION': ['2'], 'OVER': [], LIST: ['ACTIVE', 'HEADERS'] })
+        &quot;&quot;&quot;
+        caps = {}
+        resp, lines = self._longcmdstring(&quot;CAPABILITIES&quot;)
+        for line in lines:
+            name, *tokens = line.split()
+            caps[name] = tokens
+        return resp, caps
+
+    def newgroups(self, date, *, file=None):
+        &quot;&quot;&quot;Process a NEWGROUPS command.  Arguments:
+        - date: a date or datetime object
+        Return:
+        - resp: server response if successful
+        - list: list of newsgroup names
+        &quot;&quot;&quot;
+        if not isinstance(date, (datetime.date, datetime.date)):
+            raise TypeError(
+                &quot;the date parameter must be a date or datetime object, &quot;
+                &quot;not '{:40}'&quot;.format(date.__class__.__name__))
+        date_str, time_str = _unparse_datetime(date, self.nntp_version &lt; 2)
+        cmd = 'NEWGROUPS {0} {1}'.format(date_str, time_str)
+        resp, lines = self._longcmdstring(cmd, file)
+        return resp, self._grouplist(lines)
+
+    def newnews(self, group, date, *, file=None):
+        &quot;&quot;&quot;Process a NEWNEWS command.  Arguments:
+        - group: group name or '*'
+        - date: a date or datetime object
+        Return:
+        - resp: server response if successful
+        - list: list of message ids
+        &quot;&quot;&quot;
+        if not isinstance(date, (datetime.date, datetime.date)):
+            raise TypeError(
+                &quot;the date parameter must be a date or datetime object, &quot;
+                &quot;not '{:40}'&quot;.format(date.__class__.__name__))
+        date_str, time_str = _unparse_datetime(date, self.nntp_version &lt; 2)
+        cmd = 'NEWNEWS {0} {1} {2}'.format(group, date_str, time_str)
+        return self._longcmdstring(cmd, file)
+
+    def list(self, group_pattern=None, *, file=None):
+        &quot;&quot;&quot;Process a LIST or LIST ACTIVE command. Arguments:
+        - group_pattern: a pattern indicating which groups to query
+        - file: Filename string or file object to store the result in
+        Returns:
+        - resp: server response if successful
+        - list: list of (group, last, first, flag) (strings)
+        &quot;&quot;&quot;
+        if group_pattern is not None:
+            command = 'LIST ACTIVE ' + group_pattern
+        else:
+            command = 'LIST'
+        resp, lines = self._longcmdstring(command, file)
+        return resp, self._grouplist(lines)
+
+    def _getdescriptions(self, group_pattern, return_all):
+        line_pat = re.compile('^(?P&lt;group&gt;[^ \t]+)[ \t]+(.*)$')
+        # Try the more std (acc. to RFC2980) LIST NEWSGROUPS first
+        resp, lines = self._longcmdstring('LIST NEWSGROUPS ' + group_pattern)
+        if not resp.startswith('215'):
+            # Now the deprecated XGTITLE.  This either raises an error
+            # or succeeds with the same output structure as LIST
+            # NEWSGROUPS.
+            resp, lines = self._longcmdstring('XGTITLE ' + group_pattern)
+        groups = {}
+        for raw_line in lines:
+            match = line_pat.search(raw_line.strip())
+            if match:
+                name, desc = match.group(1, 2)
+                if not return_all:
+                    return desc
+                groups[name] = desc
+        if return_all:
+            return resp, groups
+        else:
+            # Nothing found
+            return ''
+
+    def description(self, group):
+        &quot;&quot;&quot;Get a description for a single group.  If more than one
+        group matches ('group' is a pattern), return the first.  If no
+        group matches, return an empty string.
+
+        This elides the response code from the server, since it can
+        only be '215' or '285' (for xgtitle) anyway.  If the response
+        code is needed, use the 'descriptions' method.
+
+        NOTE: This neither checks for a wildcard in 'group' nor does
+        it check whether the group actually exists.&quot;&quot;&quot;
+        return self._getdescriptions(group, False)
+
+    def descriptions(self, group_pattern):
+        &quot;&quot;&quot;Get descriptions for a range of groups.&quot;&quot;&quot;
+        return self._getdescriptions(group_pattern, True)
+
+    def group(self, name):
+        &quot;&quot;&quot;Process a GROUP command.  Argument:
+        - group: the group name
+        Returns:
+        - resp: server response if successful
+        - count: number of articles
+        - first: first article number
+        - last: last article number
+        - name: the group name
+        &quot;&quot;&quot;
+        resp = self._shortcmd('GROUP ' + name)
+        if not resp.startswith('211'):
+            raise NNTPReplyError(resp)
+        words = resp.split()
+        count = first = last = 0
+        n = len(words)
+        if n &gt; 1:
+            count = words[1]
+            if n &gt; 2:
+                first = words[2]
+                if n &gt; 3:
+                    last = words[3]
+                    if n &gt; 4:
+                        name = words[4].lower()
+        return resp, int(count), int(first), int(last), name
+
+    def help(self, *, file=None):
+        &quot;&quot;&quot;Process a HELP command. Argument:
+        - file: Filename string or file object to store the result in
+        Returns:
+        - resp: server response if successful
+        - list: list of strings returned by the server in response to the
+                HELP command
+        &quot;&quot;&quot;
+        return self._longcmdstring('HELP', file)
+
+    def _statparse(self, resp):
+        &quot;&quot;&quot;Internal: parse the response line of a STAT, NEXT, LAST,
+        ARTICLE, HEAD or BODY command.&quot;&quot;&quot;
+        if not resp.startswith('22'):
+            raise NNTPReplyError(resp)
+        words = resp.split()
+        art_num = int(words[1])
+        message_id = words[2]
+        return resp, art_num, message_id
+
+    def _statcmd(self, line):
+        &quot;&quot;&quot;Internal: process a STAT, NEXT or LAST command.&quot;&quot;&quot;
+        resp = self._shortcmd(line)
+        return self._statparse(resp)
+
+    def stat(self, message_spec=None):
+        &quot;&quot;&quot;Process a STAT command.  Argument:
+        - message_spec: article number or message id (if not specified,
+          the current article is selected)
+        Returns:
+        - resp: server response if successful
+        - art_num: the article number
+        - message_id: the message id
+        &quot;&quot;&quot;
+        if message_spec:
+            return self._statcmd('STAT {0}'.format(message_spec))
+        else:
+            return self._statcmd('STAT')
+
+    def next(self):
+        &quot;&quot;&quot;Process a NEXT command.  No arguments.  Return as for STAT.&quot;&quot;&quot;
+        return self._statcmd('NEXT')
+
+    def last(self):
+        &quot;&quot;&quot;Process a LAST command.  No arguments.  Return as for STAT.&quot;&quot;&quot;
+        return self._statcmd('LAST')
+
+    def _artcmd(self, line, file=None):
+        &quot;&quot;&quot;Internal: process a HEAD, BODY or ARTICLE command.&quot;&quot;&quot;
+        resp, lines = self._longcmd(line, file)
+        resp, art_num, message_id = self._statparse(resp)
+        return resp, ArticleInfo(art_num, message_id, lines)
+
+    def head(self, message_spec=None, *, file=None):
+        &quot;&quot;&quot;Process a HEAD command.  Argument:
+        - message_spec: article number or message id
+        - file: filename string or file object to store the headers in
+        Returns:
+        - resp: server response if successful
+        - ArticleInfo: (article number, message id, list of header lines)
+        &quot;&quot;&quot;
+        if message_spec is not None:
+            cmd = 'HEAD {0}'.format(message_spec)
+        else:
+            cmd = 'HEAD'
+        return self._artcmd(cmd, file)
+
+    def body(self, message_spec=None, *, file=None):
+        &quot;&quot;&quot;Process a BODY command.  Argument:
+        - message_spec: article number or message id
+        - file: filename string or file object to store the body in
+        Returns:
+        - resp: server response if successful
+        - ArticleInfo: (article number, message id, list of body lines)
+        &quot;&quot;&quot;
+        if message_spec is not None:
+            cmd = 'BODY {0}'.format(message_spec)
+        else:
+            cmd = 'BODY'
+        return self._artcmd(cmd, file)
+
+    def article(self, message_spec=None, *, file=None):
+        &quot;&quot;&quot;Process an ARTICLE command.  Argument:
+        - message_spec: article number or message id
+        - file: filename string or file object to store the article in
+        Returns:
+        - resp: server response if successful
+        - ArticleInfo: (article number, message id, list of article lines)
+        &quot;&quot;&quot;
+        if message_spec is not None:
+            cmd = 'ARTICLE {0}'.format(message_spec)
+        else:
+            cmd = 'ARTICLE'
+        return self._artcmd(cmd, file)
+
+    def slave(self):
+        &quot;&quot;&quot;Process a SLAVE command.  Returns:
+        - resp: server response if successful
+        &quot;&quot;&quot;
+        return self._shortcmd('SLAVE')
+
+    def xhdr(self, hdr, str, *, file=None):
+        &quot;&quot;&quot;Process an XHDR command (optional server extension).  Arguments:
+        - hdr: the header type (e.g. 'subject')
+        - str: an article nr, a message id, or a range nr1-nr2
+        - file: Filename string or file object to store the result in
+        Returns:
+        - resp: server response if successful
+        - list: list of (nr, value) strings
+        &quot;&quot;&quot;
+        pat = re.compile('^([0-9]+) ?(.*)\n?')
+        resp, lines = self._longcmdstring('XHDR {0} {1}'.format(hdr, str), file)
+        def remove_number(line):
+            m = pat.match(line)
+            return m.group(1, 2) if m else line
+        return resp, [remove_number(line) for line in lines]
+
+    def xover(self, start, end, *, file=None):
+        &quot;&quot;&quot;Process an XOVER command (optional server extension) Arguments:
+        - start: start of range
+        - end: end of range
+        - file: Filename string or file object to store the result in
+        Returns:
+        - resp: server response if successful
+        - list: list of dicts containing the response fields
+        &quot;&quot;&quot;
+        resp, lines = self._longcmdstring('XOVER {0}-{1}'.format(start, end),
+                                          file)
+        fmt = self._getoverviewfmt()
+        return resp, _parse_overview(lines, fmt)
+
+    def over(self, message_spec, *, file=None):
+        &quot;&quot;&quot;Process an OVER command.  If the command isn't supported, fall
+        back to XOVER. Arguments:
+        - message_spec:
+            - either a message id, indicating the article to fetch
+              information about
+            - or a (start, end) tuple, indicating a range of article numbers;
+              if end is None, information up to the newest message will be
+              retrieved
+            - or None, indicating the current article number must be used
+        - file: Filename string or file object to store the result in
+        Returns:
+        - resp: server response if successful
+        - list: list of dicts containing the response fields
+
+        NOTE: the &quot;message id&quot; form isn't supported by XOVER
+        &quot;&quot;&quot;
+        cmd = 'OVER' if 'OVER' in self._caps else 'XOVER'
+        if isinstance(message_spec, (tuple, list)):
+            start, end = message_spec
+            cmd += ' {0}-{1}'.format(start, end or '')
+        elif message_spec is not None:
+            cmd = cmd + ' ' + message_spec
+        resp, lines = self._longcmdstring(cmd, file)
+        fmt = self._getoverviewfmt()
+        return resp, _parse_overview(lines, fmt)
+
+    def date(self):
+        &quot;&quot;&quot;Process the DATE command.
+        Returns:
+        - resp: server response if successful
+        - date: datetime object
+        &quot;&quot;&quot;
+        resp = self._shortcmd(&quot;DATE&quot;)
+        if not resp.startswith('111'):
+            raise NNTPReplyError(resp)
+        elem = resp.split()
+        if len(elem) != 2:
+            raise NNTPDataError(resp)
+        date = elem[1]
+        if len(date) != 14:
+            raise NNTPDataError(resp)
+        return resp, _parse_datetime(date, None)
+
+    def _post(self, command, f):
+        resp = self._shortcmd(command)
+        # Raises a specific exception if posting is not allowed
+        if not resp.startswith('3'):
+            raise NNTPReplyError(resp)
+        if isinstance(f, (bytes, bytearray)):
+            f = f.splitlines()
+        # We don't use _putline() because:
+        # - we don't want additional CRLF if the file or iterable is already
+        #   in the right format
+        # - we don't want a spurious flush() after each line is written
+        for line in f:
+            if not line.endswith(_CRLF):
+                line = line.rstrip(b&quot;\r\n&quot;) + _CRLF
+            if line.startswith(b'.'):
+                line = b'.' + line
+            self.file.write(line)
+        self.file.write(b&quot;.\r\n&quot;)
+        self.file.flush()
+        return self._getresp()
+
+    def post(self, data):
+        &quot;&quot;&quot;Process a POST command.  Arguments:
+        - data: bytes object, iterable or file containing the article
+        Returns:
+        - resp: server response if successful&quot;&quot;&quot;
+        return self._post('POST', data)
+
+    def ihave(self, message_id, data):
+        &quot;&quot;&quot;Process an IHAVE command.  Arguments:
+        - message_id: message-id of the article
+        - data: file containing the article
+        Returns:
+        - resp: server response if successful
+        Note that if the server refuses the article an exception is raised.&quot;&quot;&quot;
+        return self._post('IHAVE {0}'.format(message_id), data)
+
+    def _close(self):
+        try:
+            if self.file:
+                self.file.close()
+                del self.file
+        finally:
+            self.sock.close()
+
+    def quit(self):
+        &quot;&quot;&quot;Process a QUIT command and close the socket.  Returns:
+        - resp: server response if successful&quot;&quot;&quot;
+        try:
+            resp = self._shortcmd('QUIT')
+        finally:
+            self._close()
+        return resp
+
+    def login(self, user=None, password=None, usenetrc=True):
+        if self.authenticated:
+            raise ValueError(&quot;Already logged in.&quot;)
+        if not user and not usenetrc:
+            raise ValueError(
+                &quot;At least one of `user` and `usenetrc` must be specified&quot;)
+        # If no login/password was specified but netrc was requested,
+        # try to get them from ~/.netrc
+        # Presume that if .netrc has an entry, NNRP authentication is required.
+        try:
+            if usenetrc and not user:
+                import netrc
+                credentials = netrc.netrc()
+                auth = credentials.authenticators(self.host)
+                if auth:
+                    user = auth[0]
+                    password = auth[2]
+        except OSError:
+            pass
+        # Perform NNTP authentication if needed.
+        if not user:
+            return
+        resp = self._shortcmd('authinfo user ' + user)
+        if resp.startswith('381'):
+            if not password:
+                raise NNTPReplyError(resp)
+            else:
+                resp = self._shortcmd('authinfo pass ' + password)
+                if not resp.startswith('281'):
+                    raise NNTPPermanentError(resp)
+        # Capabilities might have changed after login
+        self._caps = None
+        self.getcapabilities()
+        # Attempt to send mode reader if it was requested after login.
+        # Only do so if we're not in reader mode already.
+        if self.readermode_afterauth and 'READER' not in self._caps:
+            self._setreadermode()
+            # Capabilities might have changed after MODE READER
+            self._caps = None
+            self.getcapabilities()
+
+    def _setreadermode(self):
+        try:
+            self.welcome = self._shortcmd('mode reader')
+        except NNTPPermanentError:
+            # Error 5xx, probably 'not implemented'
+            pass
+        except NNTPTemporaryError as e:
+            if e.response.startswith('480'):
+                # Need authorization before 'mode reader'
+                self.readermode_afterauth = True
+            else:
+                raise
+
+    if _have_ssl:
+        def starttls(self, context=None):
+            &quot;&quot;&quot;Process a STARTTLS command. Arguments:
+            - context: SSL context to use for the encrypted connection
+            &quot;&quot;&quot;
+            # Per RFC 4642, STARTTLS MUST NOT be sent after authentication or if
+            # a TLS session already exists.
+            if self.tls_on:
+                raise ValueError(&quot;TLS is already enabled.&quot;)
+            if self.authenticated:
+                raise ValueError(&quot;TLS cannot be started after authentication.&quot;)
+            resp = self._shortcmd('STARTTLS')
+            if resp.startswith('382'):
+                self.file.close()
+                self.sock = _encrypt_on(self.sock, context, self.host)
+                self.file = self.sock.makefile(&quot;rwb&quot;)
+                self.tls_on = True
+                # Capabilities may change after TLS starts up, so ask for them
+                # again.
+                self._caps = None
+                self.getcapabilities()
+            else:
+                raise NNTPError(&quot;TLS failed to start.&quot;)
+
+
+if _have_ssl:
+    class NNTP_SSL(NNTP):
+
+        def __init__(self, host, port=NNTP_SSL_PORT,
+                    user=None, password=None, ssl_context=None,
+                    readermode=None, usenetrc=False,
+                    timeout=_GLOBAL_DEFAULT_TIMEOUT):
+            &quot;&quot;&quot;This works identically to NNTP.__init__, except for the change
+            in default port and the `ssl_context` argument for SSL connections.
+            &quot;&quot;&quot;
+            self.ssl_context = ssl_context
+            super().__init__(host, port, user, password, readermode,
+                             usenetrc, timeout)
+
+        def _create_socket(self, timeout):
+            sock = super()._create_socket(timeout)
+            try:
+                sock = _encrypt_on(sock, self.ssl_context, self.host)
+            except:
+                sock.close()
+                raise
+            else:
+                return sock
+
+    __all__.append(&quot;NNTP_SSL&quot;)
+
+
+# Test retrieval when run as a script.
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description=&quot;&quot;&quot;\
+        nntplib built-in demo - display the latest articles in a newsgroup&quot;&quot;&quot;)
+    parser.add_argument('-g', '--group', default='gmane.comp.python.general',
+                        help='group to fetch messages from (default: %(default)s)')
+    parser.add_argument('-s', '--server', default='news.gmane.io',
+                        help='NNTP server hostname (default: %(default)s)')
+    parser.add_argument('-p', '--port', default=-1, type=int,
+                        help='NNTP port number (default: %s / %s)' % (NNTP_PORT, NNTP_SSL_PORT))
+    parser.add_argument('-n', '--nb-articles', default=10, type=int,
+                        help='number of articles to fetch (default: %(default)s)')
+    parser.add_argument('-S', '--ssl', action='store_true', default=False,
+                        help='use NNTP over SSL')
+    args = parser.parse_args()
+
+    port = args.port
+    if not args.ssl:
+        if port == -1:
+            port = NNTP_PORT
+        s = NNTP(host=args.server, port=port)
+    else:
+        if port == -1:
+            port = NNTP_SSL_PORT
+        s = NNTP_SSL(host=args.server, port=port)
+
+    caps = s.getcapabilities()
+    if 'STARTTLS' in caps:
+        s.starttls()
+    resp, count, first, last, name = s.group(args.group)
+    print('Group', name, 'has', count, 'articles, range', first, 'to', last)
+
+    def cut(s, lim):
+        if len(s) &gt; lim:
+            s = s[:lim - 4] + &quot;...&quot;
+        return s
+
+    first = str(int(last) - args.nb_articles + 1)
+    resp, overviews = s.xover(first, last)
+    for artnum, over in overviews:
+        author = decode_header(over['from']).split('&lt;', 1)[0]
+        subject = decode_header(over['subject'])
+        lines = int(over[':lines'])
+        print(&quot;{:7} {:20} {:42} ({})&quot;.format(
+              artnum, cut(author, 20), cut(subject, 42), lines)
+              )
+
+    s.quit()
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

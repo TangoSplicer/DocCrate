@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>performance.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py">&quot;&quot;&quot;
+SynQ Standard Library - Performance Module
+
+Provides SIMD operations, vectorization, and parallelization support.
+&quot;&quot;&quot;
+
+import numpy as np
+from typing import List, Callable, TypeVar, Optional
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import threading
+import multiprocessing
+
+
+T = TypeVar('T')
+
+
+# ============================================================================
+# SIMD Vector Types and Operations
+# ============================================================================
+
+class Vec4f:
+    &quot;&quot;&quot;4-element float32 SIMD vector.&quot;&quot;&quot;
+    
+    def __init__(self, *values):
+        &quot;&quot;&quot;Create SIMD vector.&quot;&quot;&quot;
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            self.data = np.array(values[0], dtype=np.float32)
+        else:
+            self.data = np.array(values, dtype=np.float32)
+        if len(self.data) != 4:
+            raise ValueError(&quot;Vec4f requires exactly 4 elements&quot;)
+    
+    def add(self, other: 'Vec4f') -&gt; 'Vec4f':
+        &quot;&quot;&quot;Element-wise addition.&quot;&quot;&quot;
+        return Vec4f(self.data + other.data)
+    
+    def sub(self, other: 'Vec4f') -&gt; 'Vec4f':
+        &quot;&quot;&quot;Element-wise subtraction.&quot;&quot;&quot;
+        return Vec4f(self.data - other.data)
+    
+    def mul(self, other: 'Vec4f') -&gt; 'Vec4f':
+        &quot;&quot;&quot;Element-wise multiplication.&quot;&quot;&quot;
+        return Vec4f(self.data * other.data)
+    
+    def div(self, other: 'Vec4f') -&gt; 'Vec4f':
+        &quot;&quot;&quot;Element-wise division.&quot;&quot;&quot;
+        return Vec4f(self.data / other.data)
+    
+    def dot(self, other: 'Vec4f') -&gt; float:
+        &quot;&quot;&quot;Dot product.&quot;&quot;&quot;
+        return float(np.dot(self.data, other.data))
+    
+    def magnitude(self) -&gt; float:
+        &quot;&quot;&quot;Vector magnitude.&quot;&quot;&quot;
+        return float(np.linalg.norm(self.data))
+    
+    def normalize(self) -&gt; 'Vec4f':
+        &quot;&quot;&quot;Normalize vector.&quot;&quot;&quot;
+        mag = self.magnitude()
+        if mag == 0:
+            return Vec4f(0, 0, 0, 0)
+        return Vec4f(self.data / mag)
+    
+    def __repr__(self) -&gt; str:
+        return f&quot;Vec4f({self.data})&quot;
+
+
+class Vec8f:
+    &quot;&quot;&quot;8-element float32 SIMD vector.&quot;&quot;&quot;
+    
+    def __init__(self, *values):
+        &quot;&quot;&quot;Create SIMD vector.&quot;&quot;&quot;
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            self.data = np.array(values[0], dtype=np.float32)
+        else:
+            self.data = np.array(values, dtype=np.float32)
+        if len(self.data) != 8:
+            raise ValueError(&quot;Vec8f requires exactly 8 elements&quot;)
+    
+    def add(self, other: 'Vec8f') -&gt; 'Vec8f':
+        &quot;&quot;&quot;Element-wise addition.&quot;&quot;&quot;
+        return Vec8f(self.data + other.data)
+    
+    def sub(self, other: 'Vec8f') -&gt; 'Vec8f':
+        &quot;&quot;&quot;Element-wise subtraction.&quot;&quot;&quot;
+        return Vec8f(self.data - other.data)
+    
+    def mul(self, other: 'Vec8f') -&gt; 'Vec8f':
+        &quot;&quot;&quot;Element-wise multiplication.&quot;&quot;&quot;
+        return Vec8f(self.data * other.data)
+    
+    def div(self, other: 'Vec8f') -&gt; 'Vec8f':
+        &quot;&quot;&quot;Element-wise division.&quot;&quot;&quot;
+        return Vec8f(self.data / other.data)
+    
+    def dot(self, other: 'Vec8f') -&gt; float:
+        &quot;&quot;&quot;Dot product.&quot;&quot;&quot;
+        return float(np.dot(self.data, other.data))
+    
+    def __repr__(self) -&gt; str:
+        return f&quot;Vec8f({self.data})&quot;
+
+
+class Vec4d:
+    &quot;&quot;&quot;4-element float64 SIMD vector.&quot;&quot;&quot;
+    
+    def __init__(self, *values):
+        &quot;&quot;&quot;Create SIMD vector.&quot;&quot;&quot;
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            self.data = np.array(values[0], dtype=np.float64)
+        else:
+            self.data = np.array(values, dtype=np.float64)
+        if len(self.data) != 4:
+            raise ValueError(&quot;Vec4d requires exactly 4 elements&quot;)
+    
+    def add(self, other: 'Vec4d') -&gt; 'Vec4d':
+        &quot;&quot;&quot;Element-wise addition.&quot;&quot;&quot;
+        return Vec4d(self.data + other.data)
+    
+    def sub(self, other: 'Vec4d') -&gt; 'Vec4d':
+        &quot;&quot;&quot;Element-wise subtraction.&quot;&quot;&quot;
+        return Vec4d(self.data - other.data)
+    
+    def mul(self, other: 'Vec4d') -&gt; 'Vec4d':
+        &quot;&quot;&quot;Element-wise multiplication.&quot;&quot;&quot;
+        return Vec4d(self.data * other.data)
+    
+    def div(self, other: 'Vec4d') -&gt; 'Vec4d':
+        &quot;&quot;&quot;Element-wise division.&quot;&quot;&quot;
+        return Vec4d(self.data / other.data)
+    
+    def dot(self, other: 'Vec4d') -&gt; float:
+        &quot;&quot;&quot;Dot product.&quot;&quot;&quot;
+        return float(np.dot(self.data, other.data))
+    
+    def __repr__(self) -&gt; str:
+        return f&quot;Vec4d({self.data})&quot;
+
+
+# ============================================================================
+# Thread Pool
+# ============================================================================
+
+class ThreadPool:
+    &quot;&quot;&quot;Thread pool for parallel task execution.&quot;&quot;&quot;
+    
+    def __init__(self, num_threads: int = None):
+        &quot;&quot;&quot;Create thread pool.&quot;&quot;&quot;
+        if num_threads is None:
+            num_threads = multiprocessing.cpu_count()
+        self.num_threads = num_threads
+        self.executor = ThreadPoolExecutor(max_workers=num_threads)
+        self.futures = []
+    
+    def execute(self, task: Callable) -&gt; None:
+        &quot;&quot;&quot;Submit task to pool.&quot;&quot;&quot;
+        future = self.executor.submit(task)
+        self.futures.append(future)
+    
+    def wait(self) -&gt; None:
+        &quot;&quot;&quot;Wait for all tasks to complete.&quot;&quot;&quot;
+        for future in self.futures:
+            future.result()
+        self.futures.clear()
+    
+    def shutdown(self) -&gt; None:
+        &quot;&quot;&quot;Shutdown thread pool.&quot;&quot;&quot;
+        self.executor.shutdown(wait=True)
+    
+    def __enter__(self):
+        &quot;&quot;&quot;Context manager entry.&quot;&quot;&quot;
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        &quot;&quot;&quot;Context manager exit.&quot;&quot;&quot;
+        self.shutdown()
+
+
+class ProcessPool:
+    &quot;&quot;&quot;Process pool for parallel task execution.&quot;&quot;&quot;
+    
+    def __init__(self, num_processes: int = None):
+        &quot;&quot;&quot;Create process pool.&quot;&quot;&quot;
+        if num_processes is None:
+            num_processes = multiprocessing.cpu_count()
+        self.num_processes = num_processes
+        self.executor = ProcessPoolExecutor(max_workers=num_processes)
+        self.futures = []
+    
+    def execute(self, task: Callable) -&gt; None:
+        &quot;&quot;&quot;Submit task to pool.&quot;&quot;&quot;
+        future = self.executor.submit(task)
+        self.futures.append(future)
+    
+    def wait(self) -&gt; None:
+        &quot;&quot;&quot;Wait for all tasks to complete.&quot;&quot;&quot;
+        for future in self.futures:
+            future.result()
+        self.futures.clear()
+    
+    def shutdown(self) -&gt; None:
+        &quot;&quot;&quot;Shutdown process pool.&quot;&quot;&quot;
+        self.executor.shutdown(wait=True)
+
+
+# ============================================================================
+# Parallel Operations
+# ============================================================================
+
+def parallel_for(start: int, end: int, body: Callable[[int], None], 
+                 num_threads: int = None) -&gt; None:
+    &quot;&quot;&quot;Execute loop in parallel.&quot;&quot;&quot;
+    if num_threads is None:
+        num_threads = multiprocessing.cpu_count()
+    
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for i in range(start, end):
+            futures.append(executor.submit(body, i))
+        for future in futures:
+            future.result()
+
+
+def parallel_map(data: List[T], func: Callable[[T], T], 
+                 num_threads: int = None) -&gt; List[T]:
+    &quot;&quot;&quot;Apply function to list in parallel.&quot;&quot;&quot;
+    if num_threads is None:
+        num_threads = multiprocessing.cpu_count()
+    
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(func, item) for item in data]
+        return [future.result() for future in futures]
+
+
+def parallel_reduce(data: List[T], init: T, func: Callable[[T, T], T],
+                    num_threads: int = None) -&gt; T:
+    &quot;&quot;&quot;Reduce list in parallel.&quot;&quot;&quot;
+    if num_threads is None:
+        num_threads = multiprocessing.cpu_count()
+    
+    if not data:
+        return init
+    
+    # Divide data into chunks
+    chunk_size = max(1, len(data) // num_threads)
+    chunks = [data[i:i + chunk_size] for i in range(0, len(data), chunk_size)]
+    
+    # Reduce each chunk
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        def reduce_chunk(chunk):
+            result = init
+            for item in chunk:
+                result = func(result, item)
+            return result
+        
+        futures = [executor.submit(reduce_chunk, chunk) for chunk in chunks]
+        partial_results = [future.result() for future in futures]
+    
+    # Reduce partial results
+    result = init
+    for partial in partial_results:
+        result = func(result, partial)
+    
+    return result
+
+
+# ============================================================================
+# Vectorization Support
+# ============================================================================
+
+def vectorize_operation(func: Callable, data: List[float]) -&gt; List[float]:
+    &quot;&quot;&quot;Vectorize scalar function over array.&quot;&quot;&quot;
+    return [func(x) for x in data]
+
+
+def simd_vector_add(a: List[float], b: List[float]) -&gt; List[float]:
+    &quot;&quot;&quot;Add two vectors using SIMD.&quot;&quot;&quot;
+    a_arr = np.array(a, dtype=np.float32)
+    b_arr = np.array(b, dtype=np.float32)
+    return (a_arr + b_arr).tolist()
+
+
+def simd_vector_mul(a: List[float], b: List[float]) -&gt; List[float]:
+    &quot;&quot;&quot;Multiply two vectors using SIMD.&quot;&quot;&quot;
+    a_arr = np.array(a, dtype=np.float32)
+    b_arr = np.array(b, dtype=np.float32)
+    return (a_arr * b_arr).tolist()
+
+
+def simd_dot_product(a: List[float], b: List[float]) -&gt; float:
+    &quot;&quot;&quot;Calculate dot product using SIMD.&quot;&quot;&quot;
+    a_arr = np.array(a, dtype=np.float32)
+    b_arr = np.array(b, dtype=np.float32)
+    return float(np.dot(a_arr, b_arr))
+
+
+def simd_matrix_mul(a: List[List[float]], b: List[List[float]]) -&gt; List[List[float]]:
+    &quot;&quot;&quot;Multiply matrices using SIMD.&quot;&quot;&quot;
+    a_arr = np.array(a, dtype=np.float32)
+    b_arr = np.array(b, dtype=np.float32)
+    return np.matmul(a_arr, b_arr).tolist()
+
+
+# ============================================================================
+# Synchronization Primitives
+# ============================================================================
+
+class Mutex:
+    &quot;&quot;&quot;Mutual exclusion lock.&quot;&quot;&quot;
+    
+    def __init__(self):
+        &quot;&quot;&quot;Create mutex.&quot;&quot;&quot;
+        self._lock = threading.Lock()
+    
+    def lock(self) -&gt; None:
+        &quot;&quot;&quot;Acquire lock.&quot;&quot;&quot;
+        self._lock.acquire()
+    
+    def unlock(self) -&gt; None:
+        &quot;&quot;&quot;Release lock.&quot;&quot;&quot;
+        self._lock.release()
+    
+    def try_lock(self) -&gt; bool:
+        &quot;&quot;&quot;Try to acquire lock.&quot;&quot;&quot;
+        return self._lock.acquire(blocking=False)
+    
+    def __enter__(self):
+        &quot;&quot;&quot;Context manager entry.&quot;&quot;&quot;
+        self.lock()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        &quot;&quot;&quot;Context manager exit.&quot;&quot;&quot;
+        self.unlock()
+
+
+class Semaphore:
+    &quot;&quot;&quot;Semaphore for resource counting.&quot;&quot;&quot;
+    
+    def __init__(self, count: int = 1):
+        &quot;&quot;&quot;Create semaphore.&quot;&quot;&quot;
+        self._semaphore = threading.Semaphore(count)
+    
+    def acquire(self) -&gt; None:
+        &quot;&quot;&quot;Acquire semaphore.&quot;&quot;&quot;
+        self._semaphore.acquire()
+    
+    def release(self) -&gt; None:
+        &quot;&quot;&quot;Release semaphore.&quot;&quot;&quot;
+        self._semaphore.release()
+    
+    def try_acquire(self) -&gt; bool:
+        &quot;&quot;&quot;Try to acquire semaphore.&quot;&quot;&quot;
+        return self._semaphore.acquire(blocking=False)
+
+
+class Barrier:
+    &quot;&quot;&quot;Barrier for thread synchronization.&quot;&quot;&quot;
+    
+    def __init__(self, num_threads: int):
+        &quot;&quot;&quot;Create barrier.&quot;&quot;&quot;
+        self._barrier = threading.Barrier(num_threads)
+    
+    def wait(self) -&gt; None:
+        &quot;&quot;&quot;Wait for all threads at barrier.&quot;&quot;&quot;
+        self._barrier.wait()
+
+
+__all__ = [
+    'Vec4f', 'Vec8f', 'Vec4d',
+    'ThreadPool', 'ProcessPool',
+    'parallel_for', 'parallel_map', 'parallel_reduce',
+    'vectorize_operation', 'simd_vector_add', 'simd_vector_mul',
+    'simd_dot_product', 'simd_matrix_mul',
+    'Mutex', 'Semaphore', 'Barrier'
+]
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

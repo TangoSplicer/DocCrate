@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ecosystem_maturity_results.json</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="./index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-json">{
+  &quot;ide_plugins&quot;: {
+    &quot;vscode&quot;: {
+      &quot;package.json&quot;: {
+        &quot;name&quot;: &quot;synq-language-support&quot;,
+        &quot;version&quot;: &quot;1.0.0&quot;,
+        &quot;publisher&quot;: &quot;synq&quot;,
+        &quot;engines&quot;: {
+          &quot;vscode&quot;: &quot;^1.50.0&quot;
+        },
+        &quot;categories&quot;: [
+          &quot;Programming Languages&quot;
+        ],
+        &quot;contributes&quot;: {
+          &quot;languages&quot;: [
+            {
+              &quot;id&quot;: &quot;synq&quot;,
+              &quot;aliases&quot;: [
+                &quot;SynQ&quot;,
+                &quot;synq&quot;
+              ],
+              &quot;extensions&quot;: [
+                &quot;.synq&quot;
+              ],
+              &quot;configuration&quot;: &quot;./language-configuration.json&quot;
+            }
+          ],
+          &quot;grammars&quot;: [
+            {
+              &quot;language&quot;: &quot;synq&quot;,
+              &quot;scopeName&quot;: &quot;source.synq&quot;,
+              &quot;path&quot;: &quot;./syntaxes/synq.tmLanguage.json&quot;
+            }
+          ],
+          &quot;debuggers&quot;: [
+            {
+              &quot;type&quot;: &quot;synq&quot;,
+              &quot;label&quot;: &quot;SynQ Debugger&quot;,
+              &quot;program&quot;: &quot;./out/debugAdapter.js&quot;
+            }
+          ]
+        }
+      },
+      &quot;features&quot;: {
+        &quot;syntax_highlighting&quot;: &quot;enabled&quot;,
+        &quot;intellisense&quot;: &quot;enabled&quot;,
+        &quot;debugging&quot;: &quot;enabled&quot;,
+        &quot;testing&quot;: &quot;enabled&quot;,
+        &quot;formatting&quot;: &quot;enabled&quot;,
+        &quot;linting&quot;: &quot;enabled&quot;
+      },
+      &quot;status&quot;: &quot;template_created&quot;
+    },
+    &quot;jetbrains&quot;: {
+      &quot;plugin.xml&quot;: {
+        &quot;id&quot;: &quot;com.synq.language&quot;,
+        &quot;name&quot;: &quot;SynQ Language Support&quot;,
+        &quot;version&quot;: &quot;1.0.0&quot;,
+        &quot;description&quot;: &quot;SynQ language support for JetBrains IDEs&quot;,
+        &quot;extensions&quot;: [
+          {
+            &quot;name&quot;: &quot;com.intellij.lang.parserDefinition&quot;,
+            &quot;implementation&quot;: &quot;com.synq.SynQParserDefinition&quot;
+          },
+          {
+            &quot;name&quot;: &quot;com.intellij.lang.syntaxHighlighterFactory&quot;,
+            &quot;implementation&quot;: &quot;com.synq.SynQSyntaxHighlighterFactory&quot;
+          }
+        ]
+      },
+      &quot;features&quot;: {
+        &quot;language_support&quot;: &quot;enabled&quot;,
+        &quot;syntax_highlighting&quot;: &quot;enabled&quot;,
+        &quot;code_completion&quot;: &quot;enabled&quot;,
+        &quot;inspections&quot;: &quot;enabled&quot;,
+        &quot;refactoring&quot;: &quot;enabled&quot;,
+        &quot;debugging&quot;: &quot;enabled&quot;,
+        &quot;testing&quot;: &quot;enabled&quot;
+      },
+      &quot;status&quot;: &quot;template_created&quot;
+    },
+    &quot;vim&quot;: {
+      &quot;plugin_structure&quot;: {
+        &quot;plugin/synq.vim&quot;: &quot;Main plugin file&quot;,
+        &quot;autoload/synq.vim&quot;: &quot;Autoload functions&quot;,
+        &quot;ftplugin/synq.vim&quot;: &quot;Filetype plugin&quot;,
+        &quot;syntax/synq.vim&quot;: &quot;Syntax highlighting&quot;,
+        &quot;indent/synq.vim&quot;: &quot;Indentation rules&quot;,
+        &quot;compiler/synq.vim&quot;: &quot;Compiler settings&quot;
+      },
+      &quot;features&quot;: {
+        &quot;syntax_highlighting&quot;: &quot;enabled&quot;,
+        &quot;lsp_integration&quot;: &quot;enabled&quot;,
+        &quot;debugging&quot;: &quot;enabled&quot;,
+        &quot;formatting&quot;: &quot;enabled&quot;,
+        &quot;linting&quot;: &quot;enabled&quot;,
+        &quot;completion&quot;: &quot;enabled&quot;
+      },
+      &quot;status&quot;: &quot;template_created&quot;
+    }
+  },
+  &quot;debugging_tools&quot;: {
+    &quot;debugger&quot;: {
+      &quot;features&quot;: {
+        &quot;breakpoints&quot;: {
+          &quot;line_breakpoints&quot;: &quot;enabled&quot;,
+          &quot;conditional_breakpoints&quot;: &quot;enabled&quot;,
+          &quot;function_breakpoints&quot;: &quot;enabled&quot;,
+          &quot;exception_breakpoints&quot;: &quot;enabled&quot;
+        },
+        &quot;execution_control&quot;: {
+          &quot;step_over&quot;: &quot;enabled&quot;,
+          &quot;step_into&quot;: &quot;enabled&quot;,
+          &quot;step_out&quot;: &quot;enabled&quot;,
+          &quot;continue&quot;: &quot;enabled&quot;,
+          &quot;pause&quot;: &quot;enabled&quot;
+        },
+        &quot;inspection&quot;: {
+          &quot;variable_inspection&quot;: &quot;enabled&quot;,
+          &quot;watch_expressions&quot;: &quot;enabled&quot;,
+          &quot;stack_trace&quot;: &quot;enabled&quot;,
+          &quot;call_stack&quot;: &quot;enabled&quot;,
+          &quot;local_variables&quot;: &quot;enabled&quot;
+        },
+        &quot;advanced&quot;: {
+          &quot;remote_debugging&quot;: &quot;enabled&quot;,
+          &quot;multi_threaded_debugging&quot;: &quot;enabled&quot;,
+          &quot;memory_inspection&quot;: &quot;enabled&quot;,
+          &quot;performance_profiling&quot;: &quot;enabled&quot;
+        }
+      },
+      &quot;protocols&quot;: {
+        &quot;dap&quot;: &quot;Debug Adapter Protocol&quot;,
+        &quot;gdb&quot;: &quot;GNU Debugger Protocol&quot;,
+        &quot;lldb&quot;: &quot;LLDB Protocol&quot;
+      },
+      &quot;status&quot;: &quot;framework_created&quot;
+    },
+    &quot;guide&quot;: {
+      &quot;basic_debugging&quot;: {
+        &quot;setting_breakpoints&quot;: &quot;documented&quot;,
+        &quot;stepping_through_code&quot;: &quot;documented&quot;,
+        &quot;inspecting_variables&quot;: &quot;documented&quot;,
+        &quot;viewing_stack_trace&quot;: &quot;documented&quot;
+      },
+      &quot;advanced_debugging&quot;: {
+        &quot;conditional_breakpoints&quot;: &quot;documented&quot;,
+        &quot;watch_expressions&quot;: &quot;documented&quot;,
+        &quot;remote_debugging&quot;: &quot;documented&quot;,
+        &quot;multi_threaded_debugging&quot;: &quot;documented&quot;
+      },
+      &quot;debugging_techniques&quot;: {
+        &quot;print_debugging&quot;: &quot;documented&quot;,
+        &quot;logging&quot;: &quot;documented&quot;,
+        &quot;assertions&quot;: &quot;documented&quot;,
+        &quot;profiling&quot;: &quot;documented&quot;
+      },
+      &quot;common_issues&quot;: {
+        &quot;segmentation_faults&quot;: &quot;documented&quot;,
+        &quot;memory_leaks&quot;: &quot;documented&quot;,
+        &quot;deadlocks&quot;: &quot;documented&quot;,
+        &quot;race_conditions&quot;: &quot;documented&quot;
+      },
+      &quot;status&quot;: &quot;guide_created&quot;
+    }
+  },
+  &quot;profiling_tools&quot;: {
+    &quot;profiler&quot;: {
+      &quot;cpu_profiling&quot;: {
+        &quot;sampling_profiler&quot;: &quot;enabled&quot;,
+        &quot;instrumentation_profiler&quot;: &quot;enabled&quot;,
+        &quot;flame_graphs&quot;: &quot;enabled&quot;,
+        &quot;call_graphs&quot;: &quot;enabled&quot;,
+        &quot;hotspot_analysis&quot;: &quot;enabled&quot;
+      },
+      &quot;memory_profiling&quot;: {
+        &quot;heap_analysis&quot;: &quot;enabled&quot;,
+        &quot;memory_leak_detection&quot;: &quot;enabled&quot;,
+        &quot;allocation_tracking&quot;: &quot;enabled&quot;,
+        &quot;gc_analysis&quot;: &quot;enabled&quot;
+      },
+      &quot;io_profiling&quot;: {
+        &quot;disk_io_tracking&quot;: &quot;enabled&quot;,
+        &quot;network_io_tracking&quot;: &quot;enabled&quot;,
+        &quot;database_query_profiling&quot;: &quot;enabled&quot;,
+        &quot;cache_analysis&quot;: &quot;enabled&quot;
+      },
+      &quot;thread_profiling&quot;: {
+        &quot;thread_analysis&quot;: &quot;enabled&quot;,
+        &quot;lock_contention&quot;: &quot;enabled&quot;,
+        &quot;deadlock_detection&quot;: &quot;enabled&quot;,
+        &quot;thread_timeline&quot;: &quot;enabled&quot;
+      },
+      &quot;status&quot;: &quot;framework_created&quot;
+    },
+    &quot;guide&quot;: {
+      &quot;cpu_profiling_guide&quot;: {
+        &quot;getting_started&quot;: &quot;documented&quot;,
+        &quot;interpreting_results&quot;: &quot;documented&quot;,
+        &quot;optimization_strategies&quot;: &quot;documented&quot;,
+        &quot;best_practices&quot;: &quot;documented&quot;
+      },
+      &quot;memory_profiling_guide&quot;: {
+        &quot;heap_analysis&quot;: &quot;documented&quot;,
+        &quot;leak_detection&quot;: &quot;documented&quot;,
+        &quot;optimization_strategies&quot;: &quot;documented&quot;,
+        &quot;best_practices&quot;: &quot;documented&quot;
+      },
+      &quot;io_profiling_guide&quot;: {
+        &quot;disk_io_analysis&quot;: &quot;documented&quot;,
+        &quot;network_io_analysis&quot;: &quot;documented&quot;,
+        &quot;optimization_strategies&quot;: &quot;documented&quot;,
+        &quot;best_practices&quot;: &quot;documented&quot;
+      },
+      &quot;profiling_tools&quot;: {
+        &quot;perf&quot;: &quot;documented&quot;,
+        &quot;instruments&quot;: &quot;documented&quot;,
+        &quot;windows_performance_analyzer&quot;: &quot;documented&quot;,
+        &quot;custom_profilers&quot;: &quot;documented&quot;
+      },
+      &quot;status&quot;: &quot;guide_created&quot;
+    }
+  },
+  &quot;library_templates&quot;: {
+    &quot;library&quot;: {
+      &quot;directory_structure&quot;: {
+        &quot;src/&quot;: &quot;Source code&quot;,
+        &quot;tests/&quot;: &quot;Unit tests&quot;,
+        &quot;docs/&quot;: &quot;Documentation&quot;,
+        &quot;examples/&quot;: &quot;Usage examples&quot;,
+        &quot;benches/&quot;: &quot;Benchmarks&quot;,
+        &quot;Cargo.toml&quot;: &quot;Package manifest&quot;,
+        &quot;README.md&quot;: &quot;Project readme&quot;,
+        &quot;LICENSE&quot;: &quot;License file&quot;
+      },
+      &quot;library_components&quot;: {
+        &quot;core_module&quot;: {
+          &quot;file&quot;: &quot;src/lib.rs&quot;,
+          &quot;exports&quot;: &quot;public API&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;submodules&quot;: {
+          &quot;file&quot;: &quot;src/module_name.rs&quot;,
+          &quot;exports&quot;: &quot;module API&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;tests&quot;: {
+          &quot;file&quot;: &quot;tests/integration_tests.rs&quot;,
+          &quot;coverage&quot;: &quot;90%+&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;examples&quot;: {
+          &quot;file&quot;: &quot;examples/example_name.rs&quot;,
+          &quot;count&quot;: &quot;5+&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        }
+      },
+      &quot;publishing&quot;: {
+        &quot;registry&quot;: &quot;registry.synq.dev&quot;,
+        &quot;versioning&quot;: &quot;semantic&quot;,
+        &quot;changelog&quot;: &quot;maintained&quot;,
+        &quot;documentation&quot;: &quot;published&quot;
+      },
+      &quot;status&quot;: &quot;template_created&quot;
+    },
+    &quot;framework&quot;: {
+      &quot;framework_architecture&quot;: {
+        &quot;core&quot;: &quot;Framework core&quot;,
+        &quot;plugins&quot;: &quot;Plugin system&quot;,
+        &quot;middleware&quot;: &quot;Middleware system&quot;,
+        &quot;routing&quot;: &quot;Routing engine&quot;,
+        &quot;utilities&quot;: &quot;Utility functions&quot;
+      },
+      &quot;framework_components&quot;: {
+        &quot;request_handler&quot;: {
+          &quot;file&quot;: &quot;src/handler.rs&quot;,
+          &quot;functionality&quot;: &quot;Handle HTTP requests&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;middleware&quot;: {
+          &quot;file&quot;: &quot;src/middleware.rs&quot;,
+          &quot;functionality&quot;: &quot;Request/response processing&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;router&quot;: {
+          &quot;file&quot;: &quot;src/router.rs&quot;,
+          &quot;functionality&quot;: &quot;Route requests to handlers&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        },
+        &quot;plugin_system&quot;: {
+          &quot;file&quot;: &quot;src/plugins.rs&quot;,
+          &quot;functionality&quot;: &quot;Plugin management&quot;,
+          &quot;documentation&quot;: &quot;enabled&quot;
+        }
+      },
+      &quot;framework_features&quot;: {
+        &quot;routing&quot;: &quot;enabled&quot;,
+        &quot;middleware&quot;: &quot;enabled&quot;,
+        &quot;error_handling&quot;: &quot;enabled&quot;,
+        &quot;logging&quot;: &quot;enabled&quot;,
+        &quot;testing_utilities&quot;: &quot;enabled&quot;
+      },
+      &quot;status&quot;: &quot;template_created&quot;
+    },
+    &quot;guide&quot;: {
+      &quot;library_development&quot;: {
+        &quot;architecture_design&quot;: &quot;documented&quot;,
+        &quot;api_design&quot;: &quot;documented&quot;,
+        &quot;testing_strategy&quot;: &quot;documented&quot;,
+        &quot;documentation_standards&quot;: &quot;documented&quot;,
+        &quot;publishing_process&quot;: &quot;documented&quot;
+      },
+      &quot;framework_development&quot;: {
+        &quot;architecture_design&quot;: &quot;documented&quot;,
+        &quot;plugin_system&quot;: &quot;documented&quot;,
+        &quot;middleware_system&quot;: &quot;documented&quot;,
+        &quot;routing_system&quot;: &quot;documented&quot;,
+        &quot;documentation_standards&quot;: &quot;documented&quot;
+      },
+      &quot;best_practices&quot;: {
+        &quot;code_organization&quot;: &quot;documented&quot;,
+        &quot;error_handling&quot;: &quot;documented&quot;,
+        &quot;performance_optimization&quot;: &quot;documented&quot;,
+        &quot;security_considerations&quot;: &quot;documented&quot;,
+        &quot;backward_compatibility&quot;: &quot;documented&quot;
+      },
+      &quot;community_guidelines&quot;: {
+        &quot;contributing&quot;: &quot;documented&quot;,
+        &quot;code_of_conduct&quot;: &quot;documented&quot;,
+        &quot;issue_management&quot;: &quot;documented&quot;,
+        &quot;pull_request_process&quot;: &quot;documented&quot;
+      },
+      &quot;status&quot;: &quot;guide_created&quot;
+    }
+  }
+}
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('./search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = './' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

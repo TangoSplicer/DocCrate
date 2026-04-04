@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>validate.py</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-py"># (c) 2005 Ian Bicking and contributors; written for Paste (http://pythonpaste.org)
+# Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
+# Also licenced under the Apache License, 2.0: http://opensource.org/licenses/apache2.0.php
+# Licensed to PSF under a Contributor Agreement
+&quot;&quot;&quot;
+Middleware to check for obedience to the WSGI specification.
+
+Some of the things this checks:
+
+* Signature of the application and start_response (including that
+  keyword arguments are not used).
+
+* Environment checks:
+
+  - Environment is a dictionary (and not a subclass).
+
+  - That all the required keys are in the environment: REQUEST_METHOD,
+    SERVER_NAME, SERVER_PORT, wsgi.version, wsgi.input, wsgi.errors,
+    wsgi.multithread, wsgi.multiprocess, wsgi.run_once
+
+  - That HTTP_CONTENT_TYPE and HTTP_CONTENT_LENGTH are not in the
+    environment (these headers should appear as CONTENT_LENGTH and
+    CONTENT_TYPE).
+
+  - Warns if QUERY_STRING is missing, as the cgi module acts
+    unpredictably in that case.
+
+  - That CGI-style variables (that don't contain a .) have
+    (non-unicode) string values
+
+  - That wsgi.version is a tuple
+
+  - That wsgi.url_scheme is 'http' or 'https' (@@: is this too
+    restrictive?)
+
+  - Warns if the REQUEST_METHOD is not known (@@: probably too
+    restrictive).
+
+  - That SCRIPT_NAME and PATH_INFO are empty or start with /
+
+  - That at least one of SCRIPT_NAME or PATH_INFO are set.
+
+  - That CONTENT_LENGTH is a positive integer.
+
+  - That SCRIPT_NAME is not '/' (it should be '', and PATH_INFO should
+    be '/').
+
+  - That wsgi.input has the methods read, readline, readlines, and
+    __iter__
+
+  - That wsgi.errors has the methods flush, write, writelines
+
+* The status is a string, contains a space, starts with an integer,
+  and that integer is in range (&gt; 100).
+
+* That the headers is a list (not a subclass, not another kind of
+  sequence).
+
+* That the items of the headers are tuples of strings.
+
+* That there is no 'status' header (that is used in CGI, but not in
+  WSGI).
+
+* That the headers don't contain newlines or colons, end in _ or -, or
+  contain characters codes below 037.
+
+* That Content-Type is given if there is content (CGI often has a
+  default content type, but WSGI does not).
+
+* That no Content-Type is given when there is no content (@@: is this
+  too restrictive?)
+
+* That the exc_info argument to start_response is a tuple or None.
+
+* That all calls to the writer are with strings, and no other methods
+  on the writer are accessed.
+
+* That wsgi.input is used properly:
+
+  - .read() is called with exactly one argument
+
+  - That it returns a string
+
+  - That readline, readlines, and __iter__ return strings
+
+  - That .close() is not called
+
+  - No other methods are provided
+
+* That wsgi.errors is used properly:
+
+  - .write() and .writelines() is called with a string
+
+  - That .close() is not called, and no other methods are provided.
+
+* The response iterator:
+
+  - That it is not a string (it should be a list of a single string; a
+    string will work, but perform horribly).
+
+  - That .__next__() returns a string
+
+  - That the iterator is not iterated over until start_response has
+    been called (that can signal either a server or application
+    error).
+
+  - That .close() is called (doesn't raise exception, only prints to
+    sys.stderr, because we only know it isn't called when the object
+    is garbage collected).
+&quot;&quot;&quot;
+__all__ = ['validator']
+
+
+import re
+import sys
+import warnings
+
+header_re = re.compile(r'^[a-zA-Z][a-zA-Z0-9\-_]*$')
+bad_header_value_re = re.compile(r'[\000-\037]')
+
+class WSGIWarning(Warning):
+    &quot;&quot;&quot;
+    Raised in response to WSGI-spec-related warnings
+    &quot;&quot;&quot;
+
+def assert_(cond, *args):
+    if not cond:
+        raise AssertionError(*args)
+
+def check_string_type(value, title):
+    if type (value) is str:
+        return value
+    raise AssertionError(
+        &quot;{0} must be of type str (got {1})&quot;.format(title, repr(value)))
+
+def validator(application):
+
+    &quot;&quot;&quot;
+    When applied between a WSGI server and a WSGI application, this
+    middleware will check for WSGI compliance on a number of levels.
+    This middleware does not modify the request or response in any
+    way, but will raise an AssertionError if anything seems off
+    (except for a failure to close the application iterator, which
+    will be printed to stderr -- there's no way to raise an exception
+    at that point).
+    &quot;&quot;&quot;
+
+    def lint_app(*args, **kw):
+        assert_(len(args) == 2, &quot;Two arguments required&quot;)
+        assert_(not kw, &quot;No keyword arguments allowed&quot;)
+        environ, start_response = args
+
+        check_environ(environ)
+
+        # We use this to check if the application returns without
+        # calling start_response:
+        start_response_started = []
+
+        def start_response_wrapper(*args, **kw):
+            assert_(len(args) == 2 or len(args) == 3, (
+                &quot;Invalid number of arguments: %s&quot; % (args,)))
+            assert_(not kw, &quot;No keyword arguments allowed&quot;)
+            status = args[0]
+            headers = args[1]
+            if len(args) == 3:
+                exc_info = args[2]
+            else:
+                exc_info = None
+
+            check_status(status)
+            check_headers(headers)
+            check_content_type(status, headers)
+            check_exc_info(exc_info)
+
+            start_response_started.append(None)
+            return WriteWrapper(start_response(*args))
+
+        environ['wsgi.input'] = InputWrapper(environ['wsgi.input'])
+        environ['wsgi.errors'] = ErrorWrapper(environ['wsgi.errors'])
+
+        iterator = application(environ, start_response_wrapper)
+        assert_(iterator is not None and iterator != False,
+            &quot;The application must return an iterator, if only an empty list&quot;)
+
+        check_iterator(iterator)
+
+        return IteratorWrapper(iterator, start_response_started)
+
+    return lint_app
+
+class InputWrapper:
+
+    def __init__(self, wsgi_input):
+        self.input = wsgi_input
+
+    def read(self, *args):
+        assert_(len(args) == 1)
+        v = self.input.read(*args)
+        assert_(type(v) is bytes)
+        return v
+
+    def readline(self, *args):
+        assert_(len(args) &lt;= 1)
+        v = self.input.readline(*args)
+        assert_(type(v) is bytes)
+        return v
+
+    def readlines(self, *args):
+        assert_(len(args) &lt;= 1)
+        lines = self.input.readlines(*args)
+        assert_(type(lines) is list)
+        for line in lines:
+            assert_(type(line) is bytes)
+        return lines
+
+    def __iter__(self):
+        while 1:
+            line = self.readline()
+            if not line:
+                return
+            yield line
+
+    def close(self):
+        assert_(0, &quot;input.close() must not be called&quot;)
+
+class ErrorWrapper:
+
+    def __init__(self, wsgi_errors):
+        self.errors = wsgi_errors
+
+    def write(self, s):
+        assert_(type(s) is str)
+        self.errors.write(s)
+
+    def flush(self):
+        self.errors.flush()
+
+    def writelines(self, seq):
+        for line in seq:
+            self.write(line)
+
+    def close(self):
+        assert_(0, &quot;errors.close() must not be called&quot;)
+
+class WriteWrapper:
+
+    def __init__(self, wsgi_writer):
+        self.writer = wsgi_writer
+
+    def __call__(self, s):
+        assert_(type(s) is bytes)
+        self.writer(s)
+
+class PartialIteratorWrapper:
+
+    def __init__(self, wsgi_iterator):
+        self.iterator = wsgi_iterator
+
+    def __iter__(self):
+        # We want to make sure __iter__ is called
+        return IteratorWrapper(self.iterator, None)
+
+class IteratorWrapper:
+
+    def __init__(self, wsgi_iterator, check_start_response):
+        self.original_iterator = wsgi_iterator
+        self.iterator = iter(wsgi_iterator)
+        self.closed = False
+        self.check_start_response = check_start_response
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        assert_(not self.closed,
+            &quot;Iterator read after closed&quot;)
+        v = next(self.iterator)
+        if type(v) is not bytes:
+            assert_(False, &quot;Iterator yielded non-bytestring (%r)&quot; % (v,))
+        if self.check_start_response is not None:
+            assert_(self.check_start_response,
+                &quot;The application returns and we started iterating over its body, but start_response has not yet been called&quot;)
+            self.check_start_response = None
+        return v
+
+    def close(self):
+        self.closed = True
+        if hasattr(self.original_iterator, 'close'):
+            self.original_iterator.close()
+
+    def __del__(self):
+        if not self.closed:
+            sys.stderr.write(
+                &quot;Iterator garbage collected without being closed&quot;)
+        assert_(self.closed,
+            &quot;Iterator garbage collected without being closed&quot;)
+
+def check_environ(environ):
+    assert_(type(environ) is dict,
+        &quot;Environment is not of the right type: %r (environment: %r)&quot;
+        % (type(environ), environ))
+
+    for key in ['REQUEST_METHOD', 'SERVER_NAME', 'SERVER_PORT',
+                'wsgi.version', 'wsgi.input', 'wsgi.errors',
+                'wsgi.multithread', 'wsgi.multiprocess',
+                'wsgi.run_once']:
+        assert_(key in environ,
+            &quot;Environment missing required key: %r&quot; % (key,))
+
+    for key in ['HTTP_CONTENT_TYPE', 'HTTP_CONTENT_LENGTH']:
+        assert_(key not in environ,
+            &quot;Environment should not have the key: %s &quot;
+            &quot;(use %s instead)&quot; % (key, key[5:]))
+
+    if 'QUERY_STRING' not in environ:
+        warnings.warn(
+            'QUERY_STRING is not in the WSGI environment; the cgi '
+            'module will use sys.argv when this variable is missing, '
+            'so application errors are more likely',
+            WSGIWarning)
+
+    for key in environ.keys():
+        if '.' in key:
+            # Extension, we don't care about its type
+            continue
+        assert_(type(environ[key]) is str,
+            &quot;Environmental variable %s is not a string: %r (value: %r)&quot;
+            % (key, type(environ[key]), environ[key]))
+
+    assert_(type(environ['wsgi.version']) is tuple,
+        &quot;wsgi.version should be a tuple (%r)&quot; % (environ['wsgi.version'],))
+    assert_(environ['wsgi.url_scheme'] in ('http', 'https'),
+        &quot;wsgi.url_scheme unknown: %r&quot; % environ['wsgi.url_scheme'])
+
+    check_input(environ['wsgi.input'])
+    check_errors(environ['wsgi.errors'])
+
+    # @@: these need filling out:
+    if environ['REQUEST_METHOD'] not in (
+        'GET', 'HEAD', 'POST', 'OPTIONS', 'PATCH', 'PUT', 'DELETE', 'TRACE'):
+        warnings.warn(
+            &quot;Unknown REQUEST_METHOD: %r&quot; % environ['REQUEST_METHOD'],
+            WSGIWarning)
+
+    assert_(not environ.get('SCRIPT_NAME')
+            or environ['SCRIPT_NAME'].startswith('/'),
+        &quot;SCRIPT_NAME doesn't start with /: %r&quot; % environ['SCRIPT_NAME'])
+    assert_(not environ.get('PATH_INFO')
+            or environ['PATH_INFO'].startswith('/'),
+        &quot;PATH_INFO doesn't start with /: %r&quot; % environ['PATH_INFO'])
+    if environ.get('CONTENT_LENGTH'):
+        assert_(int(environ['CONTENT_LENGTH']) &gt;= 0,
+            &quot;Invalid CONTENT_LENGTH: %r&quot; % environ['CONTENT_LENGTH'])
+
+    if not environ.get('SCRIPT_NAME'):
+        assert_('PATH_INFO' in environ,
+            &quot;One of SCRIPT_NAME or PATH_INFO are required (PATH_INFO &quot;
+            &quot;should at least be '/' if SCRIPT_NAME is empty)&quot;)
+    assert_(environ.get('SCRIPT_NAME') != '/',
+        &quot;SCRIPT_NAME cannot be '/'; it should instead be '', and &quot;
+        &quot;PATH_INFO should be '/'&quot;)
+
+def check_input(wsgi_input):
+    for attr in ['read', 'readline', 'readlines', '__iter__']:
+        assert_(hasattr(wsgi_input, attr),
+            &quot;wsgi.input (%r) doesn't have the attribute %s&quot;
+            % (wsgi_input, attr))
+
+def check_errors(wsgi_errors):
+    for attr in ['flush', 'write', 'writelines']:
+        assert_(hasattr(wsgi_errors, attr),
+            &quot;wsgi.errors (%r) doesn't have the attribute %s&quot;
+            % (wsgi_errors, attr))
+
+def check_status(status):
+    status = check_string_type(status, &quot;Status&quot;)
+    # Implicitly check that we can turn it into an integer:
+    status_code = status.split(None, 1)[0]
+    assert_(len(status_code) == 3,
+        &quot;Status codes must be three characters: %r&quot; % status_code)
+    status_int = int(status_code)
+    assert_(status_int &gt;= 100, &quot;Status code is invalid: %r&quot; % status_int)
+    if len(status) &lt; 4 or status[3] != ' ':
+        warnings.warn(
+            &quot;The status string (%r) should be a three-digit integer &quot;
+            &quot;followed by a single space and a status explanation&quot;
+            % status, WSGIWarning)
+
+def check_headers(headers):
+    assert_(type(headers) is list,
+        &quot;Headers (%r) must be of type list: %r&quot;
+        % (headers, type(headers)))
+    for item in headers:
+        assert_(type(item) is tuple,
+            &quot;Individual headers (%r) must be of type tuple: %r&quot;
+            % (item, type(item)))
+        assert_(len(item) == 2)
+        name, value = item
+        name = check_string_type(name, &quot;Header name&quot;)
+        value = check_string_type(value, &quot;Header value&quot;)
+        assert_(name.lower() != 'status',
+            &quot;The Status header cannot be used; it conflicts with CGI &quot;
+            &quot;script, and HTTP status is not given through headers &quot;
+            &quot;(value: %r).&quot; % value)
+        assert_('\n' not in name and ':' not in name,
+            &quot;Header names may not contain ':' or '\\n': %r&quot; % name)
+        assert_(header_re.search(name), &quot;Bad header name: %r&quot; % name)
+        assert_(not name.endswith('-') and not name.endswith('_'),
+            &quot;Names may not end in '-' or '_': %r&quot; % name)
+        if bad_header_value_re.search(value):
+            assert_(0, &quot;Bad header value: %r (bad char: %r)&quot;
+            % (value, bad_header_value_re.search(value).group(0)))
+
+def check_content_type(status, headers):
+    status = check_string_type(status, &quot;Status&quot;)
+    code = int(status.split(None, 1)[0])
+    # @@: need one more person to verify this interpretation of RFC 2616
+    #     http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html
+    NO_MESSAGE_BODY = (204, 304)
+    for name, value in headers:
+        name = check_string_type(name, &quot;Header name&quot;)
+        if name.lower() == 'content-type':
+            if code not in NO_MESSAGE_BODY:
+                return
+            assert_(0, (&quot;Content-Type header found in a %s response, &quot;
+                        &quot;which must not return content.&quot;) % code)
+    if code not in NO_MESSAGE_BODY:
+        assert_(0, &quot;No Content-Type header found in headers (%s)&quot; % headers)
+
+def check_exc_info(exc_info):
+    assert_(exc_info is None or type(exc_info) is tuple,
+        &quot;exc_info (%r) is not a tuple: %r&quot; % (exc_info, type(exc_info)))
+    # More exc_info checks?
+
+def check_iterator(iterator):
+    # Technically a bytestring is legal, which is why it's a really bad
+    # idea, because it may cause the response to be returned
+    # character-by-character
+    assert_(not isinstance(iterator, (str, bytes)),
+        &quot;You should not return a string as your application iterator, &quot;
+        &quot;instead return a single-item list containing a bytestring.&quot;)
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

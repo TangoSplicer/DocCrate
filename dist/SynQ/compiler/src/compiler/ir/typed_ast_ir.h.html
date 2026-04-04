@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>typed_ast_ir.h</title>
+    <style>
+        :root { --bg: #f6f8fa; --card: #ffffff; --border: #d0d7de; --text: #24292f; --link: #0969da; --hover: #f3f4f6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 2rem 1rem; color: var(--text); background-color: var(--bg); }
+        .container { max-width: 900px; margin: 0 auto; background-color: var(--card); padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        h1, h2, h3, h4 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; margin-top: 1.5em; }
+        h1 { margin-top: 0; border-bottom: 2px solid var(--border); }
+        pre { background-color: #1e293b; padding: 16px; border-radius: 8px; overflow: auto; color: #f8fafc; }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace; font-size: 85%; background-color: rgba(175, 184, 193, 0.2); padding: 0.2em 0.4em; border-radius: 6px; }
+        pre code { background-color: transparent; padding: 0; color: inherit; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; background-color: var(--card); padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s ease; margin: 0; }
+        .nav-link:hover { background-color: var(--hover); text-decoration: none; transform: translateY(-1px); }
+        
+        /* Search Box */
+        .search-container { position: relative; flex-grow: 1; max-width: 400px; }
+        .search-input { width: 100%; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 1em; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
+        .search-input:focus { border-color: var(--link); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1); }
+        .search-results { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 100; }
+        .search-results.active { display: block; }
+        .search-item { display: block; padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:hover { background-color: var(--hover); text-decoration: none; }
+        .search-title { font-weight: 600; color: var(--link); display: block; margin-bottom: 2px; }
+        .search-snippet { font-size: 0.85em; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        
+        /* Expand & Fold Styles */
+        details.folder-group { margin-bottom: 1.5rem; }
+        summary { cursor: pointer; color: #57606a; font-weight: 600; font-size: 1.1em; margin-bottom: 0.5rem; list-style: none; display: flex; align-items: center; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: '▶'; display: inline-block; width: 1.5em; transition: transform 0.2s; font-size: 0.8em; color: var(--link); }
+        details[open] summary::before { transform: rotate(90deg); }
+        
+        .file-explorer ul { list-style-type: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .file-explorer li { border-bottom: 1px solid var(--border); margin: 0; padding: 0; text-indent: 0; }
+        .file-explorer li:last-child { border-bottom: none; }
+        .file-explorer a { display: block; padding: 12px 16px; color: var(--text); transition: background-color 0.2s; }
+        .file-explorer a:hover { background-color: var(--hover); text-decoration: none; color: var(--link); }
+        
+        .container > ul { padding-left: 2em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <a href="../../../../index.html" class="nav-link">🏠 Project Root</a>
+            <div class="search-container">
+                <input type="text" id="search-box" class="search-input" placeholder="Search documentation...">
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+        <pre><code class="language-h">// MIT License
+// Copyright (c) 2025 SynQ Contributors
+// 
+// Phase 11: Performance &amp; Compilation - Typed AST IR
+
+#pragma once
+
+#include &quot;ast_ir.h&quot;
+#include &lt;unordered_map&gt;
+#include &lt;set&gt;
+
+namespace synq::compiler::ir {
+
+/**
+ * @class Type
+ * @brief Represents a type in the type system
+ */
+class Type {
+public:
+    enum class Kind {
+        PRIMITIVE,      // i32, f64, str, bool, etc.
+        POINTER,        // *T
+        REFERENCE,      // &amp;T
+        MUT_REFERENCE,  // &amp;mut T
+        ARRAY,          // [T; N]
+        SLICE,          // [T]
+        FUNCTION,       // fn(A, B) -&gt; C
+        STRUCT,         // struct Foo { ... }
+        ENUM,           // enum Bar { ... }
+        TRAIT,          // trait Baz { ... }
+        GENERIC,        // T (type variable)
+        UNKNOWN
+    };
+
+    Kind kind = Kind::UNKNOWN;
+    std::string name;
+    std::vector&lt;std::shared_ptr&lt;Type&gt;&gt; type_params;  // For generics, function params, etc.
+
+    /**
+     * @brief Get string representation of type
+     */
+    std::string to_string() const;
+
+    /**
+     * @brief Check if type is numeric
+     */
+    bool is_numeric() const;
+
+    /**
+     * @brief Check if type is reference
+     */
+    bool is_reference() const;
+
+    /**
+     * @brief Serialize type to JSON
+     */
+    json to_json() const;
+
+    /**
+     * @brief Deserialize type from JSON
+     */
+    static std::shared_ptr&lt;Type&gt; from_json(const json&amp; data);
+
+    /**
+     * @brief Create primitive type
+     */
+    static std::shared_ptr&lt;Type&gt; make_primitive(const std::string&amp; name);
+
+    /**
+     * @brief Create pointer type
+     */
+    static std::shared_ptr&lt;Type&gt; make_pointer(const std::shared_ptr&lt;Type&gt;&amp; pointee);
+
+    /**
+     * @brief Create reference type
+     */
+    static std::shared_ptr&lt;Type&gt; make_reference(const std::shared_ptr&lt;Type&gt;&amp; referenced);
+
+    /**
+     * @brief Create function type
+     */
+    static std::shared_ptr&lt;Type&gt; make_function(
+        const std::vector&lt;std::shared_ptr&lt;Type&gt;&gt;&amp; params,
+        const std::shared_ptr&lt;Type&gt;&amp; return_type
+    );
+};
+
+/**
+ * @class Symbol
+ * @brief Represents a symbol in the symbol table
+ */
+class Symbol {
+public:
+    enum class Kind {
+        VARIABLE,
+        FUNCTION,
+        TYPE,
+        TRAIT,
+        MODULE
+    };
+
+    Kind kind;
+    std::string name;
+    std::shared_ptr&lt;Type&gt; type;
+    bool is_mutable = false;
+    bool is_public = false;
+    int definition_line = 0;
+
+    /**
+     * @brief Serialize symbol to JSON
+     */
+    json to_json() const;
+
+    /**
+     * @brief Deserialize symbol from JSON
+     */
+    static Symbol from_json(const json&amp; data);
+};
+
+/**
+ * @class Scope
+ * @brief Represents a scope in the program
+ */
+class Scope {
+public:
+    /**
+     * @brief Define a symbol in this scope
+     */
+    void define(const std::string&amp; name, const Symbol&amp; symbol) {
+        symbols[name] = symbol;
+    }
+
+    /**
+     * @brief Look up a symbol in this scope (not parent scopes)
+     */
+    const Symbol* lookup_local(const std::string&amp; name) const {
+        auto it = symbols.find(name);
+        if (it != symbols.end()) {
+            return &amp;it-&gt;second;
+        }
+        return nullptr;
+    }
+
+    /**
+     * @brief Get all symbols in this scope
+     */
+    const std::unordered_map&lt;std::string, Symbol&gt;&amp; get_symbols() const {
+        return symbols;
+    }
+
+private:
+    std::unordered_map&lt;std::string, Symbol&gt; symbols;
+};
+
+/**
+ * @class SymbolTable
+ * @brief Manages scopes and symbol resolution
+ */
+class SymbolTable {
+public:
+    /**
+     * @brief Enter a new scope
+     */
+    void enter_scope() {
+        scopes.push_back(Scope());
+    }
+
+    /**
+     * @brief Exit current scope
+     */
+    void exit_scope() {
+        if (!scopes.empty()) {
+            scopes.pop_back();
+        }
+    }
+
+    /**
+     * @brief Define a symbol in current scope
+     */
+    void define(const std::string&amp; name, const Symbol&amp; symbol) {
+        if (!scopes.empty()) {
+            scopes.back().define(name, symbol);
+        }
+    }
+
+    /**
+     * @brief Look up a symbol (searches current scope and parents)
+     */
+    const Symbol* lookup(const std::string&amp; name) const {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            const Symbol* sym = it-&gt;lookup_local(name);
+            if (sym) return sym;
+        }
+        return nullptr;
+    }
+
+    /**
+     * @brief Get current scope depth
+     */
+    size_t scope_depth() const {
+        return scopes.size();
+    }
+
+private:
+    std::vector&lt;Scope&gt; scopes;
+};
+
+/**
+ * @class TypedAST_IR
+ * @brief Represents the output of semantic analysis (Type-checked AST)
+ * 
+ * This IR contains:
+ * - The AST with type information attached to nodes
+ * - Symbol table with all defined symbols
+ * - Type information for all expressions
+ * - Semantic errors (if any)
+ * 
+ * It is produced by semantic analysis and serves as input to optimization.
+ */
+class TypedAST_IR : public SerializableIR {
+public:
+    TypedAST_IR() = default;
+
+    std::string ir_type() const override { return &quot;TypedAST&quot;; }
+
+    /**
+     * @brief Serialize typed AST to JSON
+     */
+    json serialize() const override;
+
+    /**
+     * @brief Deserialize typed AST from JSON
+     */
+    void deserialize(const json&amp; data) override;
+
+    /**
+     * @brief Set the program
+     */
+    void set_program(const std::shared_ptr&lt;Program&gt;&amp; prog) {
+        program = prog;
+    }
+
+    /**
+     * @brief Get the program
+     */
+    const std::shared_ptr&lt;Program&gt;&amp; get_program() const {
+        return program;
+    }
+
+    /**
+     * @brief Get symbol table
+     */
+    SymbolTable&amp; get_symbol_table() {
+        return symbol_table;
+    }
+
+    /**
+     * @brief Get symbol table (const)
+     */
+    const SymbolTable&amp; get_symbol_table() const {
+        return symbol_table;
+    }
+
+    /**
+     * @brief Attach type to an AST node
+     */
+    void attach_type(const ASTNode* node, const std::shared_ptr&lt;Type&gt;&amp; type) {
+        node_types[reinterpret_cast&lt;uintptr_t&gt;(node)] = type;
+    }
+
+    /**
+     * @brief Get type of an AST node
+     */
+    std::shared_ptr&lt;Type&gt; get_type(const ASTNode* node) const {
+        auto it = node_types.find(reinterpret_cast&lt;uintptr_t&gt;(node));
+        if (it != node_types.end()) {
+            return it-&gt;second;
+        }
+        return nullptr;
+    }
+
+    /**
+     * @brief Add a semantic error
+     */
+    void add_error(const std::string&amp; message, int line, int column) {
+        errors.push_back({message, line, column});
+    }
+
+    /**
+     * @brief Get all semantic errors
+     */
+    const std::vector&lt;std::tuple&lt;std::string, int, int&gt;&gt;&amp; get_errors() const {
+        return errors;
+    }
+
+    /**
+     * @brief Check if semantic analysis had errors
+     */
+    bool has_errors() const {
+        return !errors.empty();
+    }
+
+private:
+    std::shared_ptr&lt;Program&gt; program;
+    SymbolTable symbol_table;
+    std::unordered_map&lt;uintptr_t, std::shared_ptr&lt;Type&gt;&gt; node_types;
+    std::vector&lt;std::tuple&lt;std::string, int, int&gt;&gt; errors;  // (message, line, column)
+};
+
+} // namespace synq::compiler::ir
+
+</code></pre>
+
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-box');
+            const resultsBox = document.getElementById('search-results');
+            let searchIndex = [];
+
+            fetch('../../../../search_index.json')
+                .then(response => {
+                    if (!response.ok) throw new Error('Index not found');
+                    return response.json();
+                })
+                .then(data => { searchIndex = data; })
+                .catch(err => {
+                    console.error('Search index error:', err);
+                    searchInput.placeholder = "Search disabled (index failed to load)";
+                });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) {
+                    resultsBox.classList.remove('active');
+                    return;
+                }
+
+                const matches = searchIndex.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.content.toLowerCase().includes(query)
+                ).slice(0, 8);
+
+                resultsBox.innerHTML = '';
+                if (matches.length > 0) {
+                    matches.forEach(match => {
+                        const a = document.createElement('a');
+                        a.href = '../../../../' + match.path;
+                        a.className = 'search-item';
+                        
+                        const snippetIndex = match.content.toLowerCase().indexOf(query);
+                        let snippet = "";
+                        if (snippetIndex !== -1) {
+                            const start = Math.max(0, snippetIndex - 20);
+                            snippet = "..." + match.content.substring(start, start + 60).replace(/\n/g, " ") + "...";
+                        } else {
+                            snippet = match.content.substring(0, 60).replace(/\n/g, " ") + "...";
+                        }
+
+                        a.innerHTML = `<span class="search-title">📄 ${match.title}</span><span class="search-snippet">${snippet}</span>`;
+                        resultsBox.appendChild(a);
+                    });
+                    resultsBox.classList.add('active');
+                } else {
+                    resultsBox.innerHTML = '<div class="search-item"><span class="search-snippet">No results found...</span></div>';
+                    resultsBox.classList.add('active');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !resultsBox.contains(e.target)) {
+                    resultsBox.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
