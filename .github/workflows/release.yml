@@ -23,7 +23,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Explicitly force the action to resolve and bind the latest stable toolchain
+      # Explicitly install Node 20 to satisfy GitHub's new runner requirements
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -36,8 +41,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
+      # Upgraded to v1 to ensure compatibility with modern Node environments
       - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
