@@ -47,12 +47,11 @@
     <script>
         const { invoke } = window.__TAURI__.tauri;
 
-        // Function to refresh the UI list from the Rust backend
         async function refreshQueue() {
             try {
                 const sources = await invoke('get_staged_sources');
                 const list = document.getElementById('queue-list');
-                list.innerHTML = ''; // Clear current
+                list.innerHTML = ''; 
 
                 if (sources.length === 0) {
                     list.innerHTML = '<li><em>Your queue is empty.</em></li>';
@@ -69,7 +68,6 @@
             }
         }
 
-        // Function to send a new source to the Rust backend
         async function addSource() {
             const input = document.getElementById('source-input');
             const sourceUrl = input.value.trim();
@@ -77,16 +75,14 @@
             if (!sourceUrl) return;
 
             try {
-                // Call the Rust command
                 await invoke('add_source', { source: sourceUrl });
-                input.value = ''; // Clear input box
-                refreshQueue();   // Update the list
+                input.value = ''; 
+                refreshQueue();   
             } catch (e) {
                 alert("Error adding source: " + e);
             }
         }
 
-        // Load the queue as soon as the app opens
         window.addEventListener('DOMContentLoaded', refreshQueue);
     </script>
 </body>
