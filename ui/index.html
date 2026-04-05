@@ -17,11 +17,13 @@
         .btn-add:hover { background-color: #e5e7eb; }
         .btn-build { background-color: var(--primary); color: white; width: 100%; margin-top: 1rem; }
         .btn-build:hover { background-color: var(--primary-hover); }
+        .btn-build:disabled { background-color: #94d3a2; cursor: not-allowed; }
         .queue-box { border: 1px solid var(--border); border-radius: 6px; min-height: 150px; padding: 1rem; background: #fafbfc; }
         .queue-title { font-weight: 600; margin-bottom: 1rem; color: #57606a; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
         #queue-list { list-style: none; padding: 0; margin: 0; }
         #queue-list li { padding: 8px; border-bottom: 1px solid var(--border); background: var(--card); border-radius: 4px; margin-bottom: 4px; display: flex; align-items: center;}
         #queue-list li::before { content: '📦'; margin-right: 10px; }
+        #status-msg { margin-top: 1rem; font-weight: 600; text-align: center; color: var(--primary); }
     </style>
 </head>
 <body>
@@ -41,7 +43,8 @@
             </ul>
         </div>
 
-        <button class="btn-build" onclick="alert('Build engine wiring coming next!')">🚀 Build & Pack Library</button>
+        <button id="build-btn" class="btn-build" onclick="buildDocs()">🚀 Build & Pack Library</button>
+        <div id="status-msg"></div>
     </div>
 
     <script>
@@ -71,7 +74,6 @@
         async function addSource() {
             const input = document.getElementById('source-input');
             const sourceUrl = input.value.trim();
-            
             if (!sourceUrl) return;
 
             try {
@@ -80,6 +82,27 @@
                 refreshQueue();   
             } catch (e) {
                 alert("Error adding source: " + e);
+            }
+        }
+
+        async function buildDocs() {
+            const btn = document.getElementById('build-btn');
+            const status = document.getElementById('status-msg');
+            
+            btn.disabled = true;
+            btn.textContent = "⚙️ Building Library...";
+            status.textContent = "";
+            status.style.color = "var(--primary)";
+
+            try {
+                const result = await invoke('build_library');
+                status.textContent = "✅ " + result;
+            } catch (e) {
+                status.style.color = "red";
+                status.textContent = "❌ Error: " + e;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🚀 Build & Pack Library";
             }
         }
 
