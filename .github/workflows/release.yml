@@ -23,10 +23,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Force Latest Rust Compiler
-        run: |
-          rustup update stable
-          rustup default stable
+      # Explicitly force the action to resolve and bind the latest stable toolchain
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustc, cargo
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
