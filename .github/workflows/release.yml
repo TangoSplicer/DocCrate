@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'crates/desktop/**'
-      - 'crates/core/**'     # <-- We are adding this!
+      - 'crates/core/**'
       - 'ui/**'
       - '.github/workflows/**'
   workflow_dispatch:
@@ -40,6 +40,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      # THE NEW SAFETY NET: Run Core Tests Before Building!
+      - name: Run Core Logic Tests
+        run: cargo test --manifest-path crates/core/Cargo.toml
 
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
