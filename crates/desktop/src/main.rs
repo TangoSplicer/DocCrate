@@ -5,6 +5,8 @@
 
 use std::fs;
 use tauri::command;
+// Import your actual core library!
+use doccrate_core;
 
 const STAGE_FILE: &str = "doccrate.json";
 
@@ -29,7 +31,8 @@ fn add_source(source: String) -> Result<Vec<String>, String> {
     Ok(get_staged_sources())
 }
 
-// THE NEW ENGINE WIRING
+// THE REAL ENGINE BRIDGE
+// Notice this is async. This ensures the UI doesn't freeze while Rust does the heavy lifting!
 #[command]
 async fn build_library() -> Result<String, String> {
     let sources = get_staged_sources();
@@ -37,17 +40,21 @@ async fn build_library() -> Result<String, String> {
         return Err("Queue is empty. Please add sources first!".to_string());
     }
 
-    // Here is where doccrate_core runs the cloning/packing logic.
-    // For the UI bridge test, we will ensure it can write a final output file.
-    let output_file = "Master_Library.docpack";
-    
-    // Simulate engine work...
-    std::thread::sleep(std::time::Duration::from_secs(2)); 
-    
-    // Write the output package
-    fs::write(output_file, "DOCPACK_V1_MOCK_DATA").map_err(|e| e.to_string())?;
+    // Call your actual Phase 4 core logic here!
+    // We run it inside tokio's spawn_blocking so it doesn't block Tauri's main thread
+    let result = tokio::task::spawn_blocking(move || {
+        // NOTE: Replace 'build_offline_pack' with whatever you named your 
+        // main compiling function in crates/core/src/lib.rs during Phase 4
+        doccrate_core::build_offline_pack(&sources)
+    })
+    .await
+    .map_err(|e| format!("Thread execution failed: {}", e))?;
 
-    Ok(format!("Successfully built {} with {} sources!", output_file, sources.len()))
+    // Handle the result from your core engine
+    match result {
+        Ok(pack_path) => Ok(format!("Successfully built: {}", pack_path)),
+        Err(e) => Err(format!("Engine Error: {}", e)),
+    }
 }
 
 fn main() {
