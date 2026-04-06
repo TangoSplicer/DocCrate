@@ -5,10 +5,11 @@
 
 use std::fs;
 use tauri::command;
-// Import your actual core library!
 use doccrate_core;
 
 const STAGE_FILE: &str = "doccrate.json";
+
+// --- PUBLISHER COMMANDS ---
 
 #[command]
 fn get_staged_sources() -> Vec<String> {
@@ -25,14 +26,13 @@ fn add_source(source: String) -> Result<Vec<String>, String> {
     let mut sources = get_staged_sources();
     if !sources.contains(&source) && !source.trim().is_empty() {
         sources.push(source);
-        let json = serde_json::to_string_pretty(&sources).map_err(|e| e.to_string())?;
-        fs::write(STAGE_FILE, json).map_err(|e| e.to_string())?;
+        if let Ok(json) = serde_json::to_string_pretty(&sources) {
+            let _ = fs::write(STAGE_FILE, json);
+        }
     }
     Ok(get_staged_sources())
 }
 
-// THE REAL ENGINE BRIDGE
-// Notice this is async. This ensures the UI doesn't freeze while Rust does the heavy lifting!
 #[command]
 async fn build_library() -> Result<String, String> {
     let sources = get_staged_sources();
@@ -40,21 +40,34 @@ async fn build_library() -> Result<String, String> {
         return Err("Queue is empty. Please add sources first!".to_string());
     }
 
-    // Call your actual Phase 4 core logic here!
-    // We run it inside tokio's spawn_blocking so it doesn't block Tauri's main thread
     let result = tokio::task::spawn_blocking(move || {
-        // NOTE: Replace 'build_offline_pack' with whatever you named your 
-        // main compiling function in crates/core/src/lib.rs during Phase 4
         doccrate_core::build_offline_pack(&sources)
     })
     .await
     .map_err(|e| format!("Thread execution failed: {}", e))?;
 
-    // Handle the result from your core engine
-    match result {
-        Ok(pack_path) => Ok(format!("Successfully built: {}", pack_path)),
-        Err(e) => Err(format!("Engine Error: {}", e)),
-    }
+    result
+}
+
+// --- READER COMMANDS ---
+
+#[command]
+async fn list_pack_files(path: String) -> Result<Vec<String>, String> {
+    // Run in background thread to prevent UI freezing on large archives
+    tokio::task::spawn_blocking(move || {
+        doccrate_core::list_docpack_files(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[command]
+async fn read_pack_file(path: String, target: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        doccrate_core::read_docpack_file(&path, &target)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn main() {
@@ -62,7 +75,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_staged_sources, 
             add_source,
-            build_library
+            build_library,
+            list_pack_files,   // New!
+            read_pack_file     // New!
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
