@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use git2::Repository;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -20,15 +19,31 @@ fn run_engine(sources: &Vec<String>) -> Result<String> {
     let stage_dir = Path::new("doccrate_staging");
     if stage_dir.exists() { fs::remove_dir_all(stage_dir).context("Failed to clear previous staging directory")?; }
     fs::create_dir_all(stage_dir).context("Failed to create staging directory")?;
+    
     for (i, url) in sources.iter().enumerate() {
         let repo_dir = stage_dir.join(format!("repo_{}", i));
-        Repository::clone(url, &repo_dir).context(format!("Failed to clone Git URL: {}", url))?;
+        
+        // Pivot: Use native git command instead of compiling C-bindings
+        let status = std::process::Command::new("git")
+            .arg("clone")
+            .arg("--depth")
+            .arg("1") // Shallow clone for speed
+            .arg(url)
+            .arg(&repo_dir)
+            .status()
+            .context(format!("Failed to execute native git clone for: {}", url))?;
+            
+        if !status.success() {
+            anyhow::bail!("Git clone command failed for URL: {}", url);
+        }
     }
+    
     let output_file = "Master_Library_v1.docpack";
     let file = File::create(output_file).context("Failed to create output archive file")?;
     let mut zip = ZipWriter::new(file);
     let options = FileOptions::default();
     let mut packed_count = 0;
+    
     for entry in WalkDir::new(stage_dir).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
@@ -69,7 +84,6 @@ pub fn read_docpack_file(pack_path: &str, target_file: &str) -> Result<String, S
     Ok(contents)
 }
 
-// --- VERIFICATION MODULE (NEW!) ---
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,8 +92,6 @@ mod tests {
     fn test_engine_rejects_empty_queue() {
         let empty_sources = Vec::new();
         let result = build_offline_pack(&empty_sources);
-        
-        // Assert that the engine fails as expected
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "Engine Failure: No sources provided in the queue.");
     }
