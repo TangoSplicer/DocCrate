@@ -4,4 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# We will add heavy dependencies like Git and Markdown parsers here in Phase 6 later
+# For handling the multi-threading
+tokio = { version = "1", features = ["full"] }
+
+# For cloning GitHub repositories
+git2 = "0.18"
+
+# For searching through directories to find Markdown files
+walkdir = "2.4"
+
+# For packing everything into the final .docpack (zip format)
+zip = "0.6"
+
+# For handling file paths and errors gracefully
+anyhow = "1.0"
