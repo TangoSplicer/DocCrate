@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pulldown-cmark = "0.9"
+# We will add heavy dependencies like Git and Markdown parsers here in Phase 6 later
