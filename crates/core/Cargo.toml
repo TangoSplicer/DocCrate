@@ -7,8 +7,8 @@ edition = "2021"
 # For handling the multi-threading
 tokio = { version = "1", features = ["full"] }
 
-# For cloning GitHub repositories
-git2 = "0.18"
+# For cloning repositories (Vendored features added to fix Windows builds!)
+git2 = { version = "0.18", features = ["vendored-libgit2", "vendored-openssl"] }
 
 # For searching through directories to find Markdown files
 walkdir = "2.4"
