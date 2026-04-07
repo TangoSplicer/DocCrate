@@ -5,7 +5,6 @@ use std::path::Path;
 use walkdir::WalkDir;
 use zip::{ZipArchive, ZipWriter};
 use zip::write::FileOptions;
-// Import the markdown parser
 use pulldown_cmark::{Parser, html};
 
 // --- PUBLISHER LOGIC ---
@@ -72,12 +71,36 @@ pub fn read_docpack_file(pack_path: &str, target_file: &str) -> Result<String, S
     let mut raw_markdown = String::new();
     inner_file.read_to_string(&mut raw_markdown).map_err(|e| format!("Failed to read file: {}", e))?;
     
-    // NEW: Convert the raw Markdown into HTML
     let parser = Parser::new(&raw_markdown);
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
-    
     Ok(html_output)
+}
+
+// NEW: Search Engine Logic
+pub fn search_docpack(pack_path: &str, query: &str) -> Result<Vec<String>, String> {
+    let file = File::open(pack_path).map_err(|e| format!("Could not open file: {}", e))?;
+    let mut archive = ZipArchive::new(file).map_err(|e| format!("Not a valid DocCrate pack: {}", e))?;
+    let mut results = Vec::new();
+    let query_lower = query.to_lowercase();
+
+    for i in 0..archive.len() {
+        if let Ok(mut inner_file) = archive.by_index(i) {
+            if inner_file.is_file() {
+                let name = inner_file.name().to_string();
+                if name.ends_with(".md") {
+                    let mut contents = String::new();
+                    // We silently ignore files that fail to parse as UTF-8
+                    if inner_file.read_to_string(&mut contents).is_ok() {
+                        if contents.to_lowercase().contains(&query_lower) {
+                            results.push(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(results)
 }
 
 #[cfg(test)]

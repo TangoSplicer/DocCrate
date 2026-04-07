@@ -9,8 +9,6 @@ use doccrate_core;
 
 const STAGE_FILE: &str = "doccrate.json";
 
-// --- PUBLISHER COMMANDS ---
-
 #[command]
 fn get_staged_sources() -> Vec<String> {
     if let Ok(content) = fs::read_to_string(STAGE_FILE) {
@@ -36,38 +34,28 @@ fn add_source(source: String) -> Result<Vec<String>, String> {
 #[command]
 async fn build_library() -> Result<String, String> {
     let sources = get_staged_sources();
-    if sources.is_empty() {
-        return Err("Queue is empty. Please add sources first!".to_string());
-    }
-
-    let result = tokio::task::spawn_blocking(move || {
-        doccrate_core::build_offline_pack(&sources)
-    })
-    .await
-    .map_err(|e| format!("Thread execution failed: {}", e))?;
-
-    result
+    if sources.is_empty() { return Err("Queue is empty.".to_string()); }
+    tokio::task::spawn_blocking(move || { doccrate_core::build_offline_pack(&sources) })
+        .await.map_err(|e| format!("Thread failed: {}", e))?
 }
-
-// --- READER COMMANDS ---
 
 #[command]
 async fn list_pack_files(path: String) -> Result<Vec<String>, String> {
-    // Run in background thread to prevent UI freezing on large archives
-    tokio::task::spawn_blocking(move || {
-        doccrate_core::list_docpack_files(&path)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tokio::task::spawn_blocking(move || { doccrate_core::list_docpack_files(&path) })
+        .await.map_err(|e| e.to_string())?
 }
 
 #[command]
 async fn read_pack_file(path: String, target: String) -> Result<String, String> {
-    tokio::task::spawn_blocking(move || {
-        doccrate_core::read_docpack_file(&path, &target)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tokio::task::spawn_blocking(move || { doccrate_core::read_docpack_file(&path, &target) })
+        .await.map_err(|e| e.to_string())?
+}
+
+// NEW: Expose the search command
+#[command]
+async fn search_pack_files(path: String, query: String) -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(move || { doccrate_core::search_docpack(&path, &query) })
+        .await.map_err(|e| e.to_string())?
 }
 
 fn main() {
@@ -76,8 +64,9 @@ fn main() {
             get_staged_sources, 
             add_source,
             build_library,
-            list_pack_files,   // New!
-            read_pack_file     // New!
+            list_pack_files,
+            read_pack_file,
+            search_pack_files // Register the new command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
