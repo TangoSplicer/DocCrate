@@ -1,31 +1,57 @@
-# 🗃️ DocCrate Core
+# 📦 DocCrate Studio v1.0
 
-DocCrate is a high-performance, zero-dependency offline documentation builder written in Rust. It compiles remote GitHub repositories and local folders into highly polished, searchable, and fully offline HTML knowledge bundles (`.docpack`). 
+**The Offline Markdown Knowledge Base Publisher.**
 
-Built for secure environments, air-gapped systems, and premium knowledge distribution, DocCrate ensures that technical documentation remains accessible anywhere, without requiring a server or internet connection.
+DocCrate Studio is a cross-platform, natively compiled desktop application designed to solve a specific problem: taking scattered, online developer documentation (Git repositories, Markdown files) and packing them into a single, highly compressed, fully searchable offline archive (`.docpack`). 
 
-## ✨ Core Architecture & Features
+Perfect for air-gapped environments, compliance officers, and offline field engineers.
 
-* **Zero-Dependency Viewing:** Generated bundles require no internet connection, external CDNs, or backend databases to view. Everything is embedded.
-* **Staging Area (Multi-Repo Federation):** Combine multiple repositories into a single "Master Library" dashboard using a managed staging queue (`doccrate.json`).
-* **Offline Fuzzy Search:** Features instant, typo-tolerant search. During the build phase, DocCrate safely escapes and compresses content into a local `search_index.json` file, which is parsed by an embedded Vanilla JS engine at runtime.
-* **Smart Parsing & Code Wrapping:** Automatically detects over 15 code extensions (Rust, Python, JS, TS, etc.) and wraps them in syntax-highlighted Markdown code blocks.
-* **Native File Explorer:** Replicates the exact directory tree of the source material using native HTML5 `<details>` and `<summary>` tags for lightweight, JavaScript-free collapsible folder navigation.
-* **Fast Native Bindings:** Leverages the host system's `git` and `zip` utilities directly to bypass heavy C-bindings and ensure ultra-fast compilation on mobile environments like Termux.
+---
 
-## 🚀 Technical Usage
+## 🚀 Features
 
-DocCrate is driven via a standard CLI interface.
+* **Dual-Mode Interface:** Seamlessly switch between Publisher Mode (to build archives) and Reader Mode (to view them).
+* **Native Rust Engine:** Powered by a lightning-fast Rust backend that handles Git cloning, filesystem parsing, and zip archiving without freezing the UI.
+* **Offline Global Search:** Linearly scan thousands of compressed Markdown files in milliseconds.
+* **Beautiful Rendering:** Built-in Rust Markdown-to-HTML parsing ensures your raw `.md` files look like premium web documentation.
+* **Cross-Platform:** Compiles to Windows (`.exe`) and Linux (`.AppImage`) with zero C-dependency nightmares.
 
-### 1. Staging Sources
-Instead of building one repository at a time, DocCrate uses a staging system to build comprehensive libraries.
-```bash
-cargo run -p doccrate-cli -- add [https://github.com/TangoSplicer/project-aletheia.git](https://github.com/TangoSplicer/project-aletheia.git)
-cargo run -p doccrate-cli -- add ./local_secret_notes
-cargo run -p doccrate-cli -- status
-### 2. Building the Library
-​Once sources are staged, run the build command to clone, parse, and generate the Master Index.                              ```bash                                                       cargo run -p doccrate-cli -- build --out ./dist
-### 3. Packaging
-​Compress the generated HTML into a portable bundle.           ```bash                                                       cargo run -p doccrate-cli -- pack --source ./dist --out My_Premium_Library.docpack
-📜 License & Compliance
-​Designed to support frameworks like the UK FSR, NIST, and the EU AI Act by providing immutable, offline snapshots of compliance documentation and codebases.
+---
+
+## 📖 User Guide
+
+### 🛠️ Publisher Mode (Building a Pack)
+1. Launch DocCrate Studio and ensure you are on the **Publisher Mode** tab.
+2. In the input box, paste the URL of a public Git repository (e.g., `https://github.com/rust-lang/book.git`).
+3. Click **+ Add to Queue**. You can stage as many repositories as you need.
+4. Click **🚀 Build & Pack Library**.
+5. The engine will shallow-clone the repositories, hunt down every `.md` file, compress them, and output a `Master_Library_v1.docpack` file in the application directory.
+
+### 📖 Reader Mode (Viewing a Pack)
+1. Switch to the **Reader Mode** tab.
+2. Click **📂 Select .docpack File** and locate your generated `.docpack` archive.
+3. The sidebar will instantly populate with an index of all contained documents.
+4. Click any document to extract it from the archive and render it in the reading pane.
+5. **Search:** Use the search bar above the file list to instantly scan the entire archive for keywords. Press `Enter` to execute the search.
+
+---
+
+## 🏗️ Architecture
+
+DocCrate is built on the **Tauri** framework, utilizing a multi-crate Rust workspace:
+* **Frontend (`/ui`):** A lightweight, dependency-free HTML/CSS/JS interface using Flexbox for responsiveness.
+* **Backend Bridge (`crates/desktop`):** The Tauri application shell that handles OS-level windowing and exposes async commands.
+* **Core Engine (`crates/core`):** The heavy-lifting Rust library utilizing `tokio` (threading), `zip` (archiving), and `pulldown-cmark` (Markdown parsing). System native `git` commands are used to bypass C-binding compilation issues on Windows.
+
+---
+
+## 💻 Building from Source
+
+This repository relies on GitHub Actions for automated CI/CD cross-compilation. If you wish to build locally:
+
+1. Ensure you have Rust, Node.js, and standard C-build tools installed for your OS.
+2. Ensure you have the standard command-line `git` installed and accessible in your system PATH.
+3. Navigate to `crates/desktop` and run:
+   ```bash
+   cargo tauri build
+© 2026 DocCrate. All rights reserved.
