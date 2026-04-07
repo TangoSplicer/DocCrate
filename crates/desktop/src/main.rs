@@ -51,7 +51,6 @@ async fn read_pack_file(path: String, target: String) -> Result<String, String> 
         .await.map_err(|e| e.to_string())?
 }
 
-// NEW: Expose the search command
 #[command]
 async fn search_pack_files(path: String, query: String) -> Result<Vec<String>, String> {
     tokio::task::spawn_blocking(move || { doccrate_core::search_docpack(&path, &query) })
@@ -66,7 +65,7 @@ fn main() {
             build_library,
             list_pack_files,
             read_pack_file,
-            search_pack_files // Register the new command
+            search_pack_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

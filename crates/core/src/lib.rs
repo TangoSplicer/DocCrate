@@ -7,7 +7,6 @@ use zip::{ZipArchive, ZipWriter};
 use zip::write::FileOptions;
 use pulldown_cmark::{Parser, html};
 
-// --- PUBLISHER LOGIC ---
 pub fn build_offline_pack(sources: &Vec<String>) -> Result<String, String> {
     match run_engine(sources) {
         Ok(msg) => Ok(msg),
@@ -53,7 +52,6 @@ fn run_engine(sources: &Vec<String>) -> Result<String> {
     Ok(format!("Built {} containing {} Markdown files!", output_file, packed_count))
 }
 
-// --- READER LOGIC ---
 pub fn list_docpack_files(pack_path: &str) -> Result<Vec<String>, String> {
     let file = File::open(pack_path).map_err(|e| format!("Could not open file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Not a valid DocCrate pack: {}", e))?;
@@ -77,7 +75,6 @@ pub fn read_docpack_file(pack_path: &str, target_file: &str) -> Result<String, S
     Ok(html_output)
 }
 
-// NEW: Search Engine Logic
 pub fn search_docpack(pack_path: &str, query: &str) -> Result<Vec<String>, String> {
     let file = File::open(pack_path).map_err(|e| format!("Could not open file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Not a valid DocCrate pack: {}", e))?;
@@ -90,7 +87,6 @@ pub fn search_docpack(pack_path: &str, query: &str) -> Result<Vec<String>, Strin
                 let name = inner_file.name().to_string();
                 if name.ends_with(".md") {
                     let mut contents = String::new();
-                    // We silently ignore files that fail to parse as UTF-8
                     if inner_file.read_to_string(&mut contents).is_ok() {
                         if contents.to_lowercase().contains(&query_lower) {
                             results.push(name);

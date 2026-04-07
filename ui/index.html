@@ -161,7 +161,6 @@
             } catch (e) { sidebar.innerHTML = `<div style="padding:10px; color:red;">Error: ${e}</div>`; }
         }
 
-        // Helper to draw files
         function populateSidebar(sidebar, files) {
             sidebar.innerHTML = '';
             if (files.length === 0) { sidebar.innerHTML = '<div style="padding:10px; color:gray;">No matching files found.</div>'; return; }
@@ -185,7 +184,6 @@
             } catch (e) { viewer.innerHTML = "<span style='color:red'>Error reading file:<br>" + e + "</span>"; }
         }
 
-        // NEW: Handle user hitting Enter in the search box
         async function handleSearch(event) {
             if (event.key === 'Enter') {
                 const query = event.target.value.trim();
@@ -195,7 +193,7 @@
                 }
                 const sidebar = document.getElementById('file-sidebar');
                 if (query === '') {
-                    loadSidebar(currentPackPath); // Reset to all files
+                    loadSidebar(currentPackPath); 
                     return;
                 }
                 sidebar.innerHTML = '<div style="padding:10px;">Searching...</div>';
