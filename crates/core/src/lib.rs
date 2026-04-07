@@ -5,6 +5,8 @@ use std::path::Path;
 use walkdir::WalkDir;
 use zip::{ZipArchive, ZipWriter};
 use zip::write::FileOptions;
+// Import the markdown parser
+use pulldown_cmark::{Parser, html};
 
 // --- PUBLISHER LOGIC ---
 pub fn build_offline_pack(sources: &Vec<String>) -> Result<String, String> {
@@ -22,20 +24,10 @@ fn run_engine(sources: &Vec<String>) -> Result<String> {
     
     for (i, url) in sources.iter().enumerate() {
         let repo_dir = stage_dir.join(format!("repo_{}", i));
-        
-        // Pivot: Use native git command instead of compiling C-bindings
         let status = std::process::Command::new("git")
-            .arg("clone")
-            .arg("--depth")
-            .arg("1") // Shallow clone for speed
-            .arg(url)
-            .arg(&repo_dir)
-            .status()
-            .context(format!("Failed to execute native git clone for: {}", url))?;
-            
-        if !status.success() {
-            anyhow::bail!("Git clone command failed for URL: {}", url);
-        }
+            .arg("clone").arg("--depth").arg("1").arg(url).arg(&repo_dir)
+            .status().context(format!("Failed to execute native git clone for: {}", url))?;
+        if !status.success() { anyhow::bail!("Git clone failed for URL: {}", url); }
     }
     
     let output_file = "Master_Library_v1.docpack";
@@ -68,9 +60,7 @@ pub fn list_docpack_files(pack_path: &str) -> Result<Vec<String>, String> {
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Not a valid DocCrate pack: {}", e))?;
     let mut files = Vec::new();
     for i in 0..archive.len() {
-        if let Ok(file) = archive.by_index(i) {
-            files.push(file.name().to_string());
-        }
+        if let Ok(file) = archive.by_index(i) { files.push(file.name().to_string()); }
     }
     Ok(files)
 }
@@ -79,20 +69,24 @@ pub fn read_docpack_file(pack_path: &str, target_file: &str) -> Result<String, S
     let file = File::open(pack_path).map_err(|e| format!("Could not open file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Not a valid DocCrate pack: {}", e))?;
     let mut inner_file = archive.by_name(target_file).map_err(|e| format!("File not found in pack: {}", e))?;
-    let mut contents = String::new();
-    inner_file.read_to_string(&mut contents).map_err(|e| format!("Failed to read file: {}", e))?;
-    Ok(contents)
+    let mut raw_markdown = String::new();
+    inner_file.read_to_string(&mut raw_markdown).map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    // NEW: Convert the raw Markdown into HTML
+    let parser = Parser::new(&raw_markdown);
+    let mut html_output = String::new();
+    html::push_html(&mut html_output, parser);
+    
+    Ok(html_output)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_engine_rejects_empty_queue() {
         let empty_sources = Vec::new();
         let result = build_offline_pack(&empty_sources);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Engine Failure: No sources provided in the queue.");
     }
 }

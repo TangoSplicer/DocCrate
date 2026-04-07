@@ -4,14 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# For handling the multi-threading
 tokio = { version = "1", features = ["full"] }
-
-# For searching through directories to find Markdown files
 walkdir = "2.4"
-
-# For packing everything into the final .docpack (zip format)
 zip = "0.6"
-
-# For handling file paths and errors gracefully
 anyhow = "1.0"
+# NEW: Native offline Markdown-to-HTML parser
+pulldown-cmark = "0.9"
