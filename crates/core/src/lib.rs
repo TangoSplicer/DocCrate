@@ -102,10 +102,69 @@ pub fn search_docpack(pack_path: &str, query: &str) -> Result<Vec<String>, Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn create_dummy_pack(name: &str) {
+        let file = File::create(name).expect("Failed to create test file");
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default();
+
+        zip.start_file("intro.md", options).unwrap();
+        zip.write_all(b"# DocCrate Studio\nThis is a test.").unwrap();
+
+        zip.start_file("secret.md", options).unwrap();
+        zip.write_all(b"The keyword is TANGOSPLICER hidden inside.").unwrap();
+
+        zip.start_file("ignore.txt", options).unwrap();
+        zip.write_all(b"This should be ignored by search.").unwrap();
+
+        zip.finish().unwrap();
+    }
+
     #[test]
-    fn test_engine_rejects_empty_queue() {
+    fn test_publisher_engine_rejects_empty_queue() {
         let empty_sources = Vec::new();
         let result = build_offline_pack(&empty_sources);
         assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Engine Failure: No sources provided in the queue.");
+    }
+
+    #[test]
+    fn test_reader_list_files() {
+        let pack_name = "test_list.docpack";
+        create_dummy_pack(pack_name);
+        
+        let files = list_docpack_files(pack_name).expect("Failed to list files");
+        assert!(files.contains(&"intro.md".to_string()));
+        assert!(files.contains(&"secret.md".to_string()));
+        
+        std::fs::remove_file(pack_name).unwrap();
+    }
+
+    #[test]
+    fn test_reader_markdown_to_html_parser() {
+        let pack_name = "test_read.docpack";
+        create_dummy_pack(pack_name);
+        
+        let html = read_docpack_file(pack_name, "intro.md").expect("Failed to read file");
+        
+        assert!(html.contains("<h1>DocCrate Studio</h1>"));
+        assert!(html.contains("<p>This is a test.</p>"));
+        
+        std::fs::remove_file(pack_name).unwrap();
+    }
+
+    #[test]
+    fn test_search_engine_logic() {
+        let pack_name = "test_search.docpack";
+        create_dummy_pack(pack_name);
+        
+        let results = search_docpack(pack_name, "tangosplicer").expect("Search failed");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0], "secret.md"); 
+
+        let empty_results = search_docpack(pack_name, "ghost").expect("Search failed");
+        assert!(empty_results.is_empty());
+
+        std::fs::remove_file(pack_name).unwrap();
     }
 }
