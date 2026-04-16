@@ -1,5 +1,7 @@
 # 📦 DocCrate Studio v1.0
 
+[![Buy DocCrate Studio](https://img.shields.io/badge/Buy%20DocCrate%20Studio-%2412+-blueviolet?style=for-the-badge&logo=gumroad)](https://tangosplice.gumroad.com/l/doccrate)
+
 **The Offline Markdown Knowledge Base Publisher.**
 
 DocCrate Studio is a cross-platform, natively compiled desktop application designed to solve a specific problem: taking scattered, online developer documentation (Git repositories, Markdown files) and packing them into a single, highly compressed, fully searchable offline archive (`.docpack`). 
